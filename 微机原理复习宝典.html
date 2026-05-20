@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="微机复习">
+<meta name="theme-color" content="#4a6cf7">
+<title>微机原理复习宝典</title>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+<style>
+:root {
+  --bg: #f5f7fa;
+  --card: #fff;
+  --primary: #4a6cf7;
+  --primary-light: #e8edff;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --text: #1e293b;
+  --text-light: #64748b;
+  --border: #e2e8f0;
+  --radius: 12px;
+  --wrong-bg: #fef2f2;
+  --wrong-border: #fecaca;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+header { background: linear-gradient(135deg, var(--primary), #6366f1); color: white; padding: 20px 24px; position: sticky; top: 0; z-index: 100; }
+header h1 { font-size: 22px; font-weight: 700; }
+header p { font-size: 13px; opacity: .85; margin-top: 4px; }
+
+nav { display: flex; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 64px; z-index: 99; overflow-x: auto; }
+nav button { flex: 1; padding: 10px 6px; border: none; background: none; font-size: 13px; font-weight: 600; color: var(--text-light); cursor: pointer; border-bottom: 3px solid transparent; transition: all .2s; white-space: nowrap; min-width: 60px; }
+nav button.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--primary-light); }
+nav button:hover:not(.active) { background: #f1f5f9; }
+nav button .badge { background: var(--danger); color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 10px; margin-left: 2px; }
+
+main { max-width: 800px; margin: 0 auto; padding: 16px; display: none; }
+main.active { display: block; }
+
+.tab-header { margin-bottom: 16px; }
+.tab-header h2 { font-size: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tab-header p { color: var(--text-light); font-size: 14px; margin-top: 4px; }
+
+.card { background: var(--card); border-radius: var(--radius); box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 12px; overflow: hidden; }
+
+/* Notes Section */
+.topic-btn { width: 100%; padding: 14px 16px; border: none; background: none; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 600; color: var(--text); text-align: left; border-bottom: 1px solid var(--border); transition: background .15s; }
+.topic-btn:hover { background: #f8fafc; }
+.topic-btn .icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.topic-btn .arrow { margin-left: auto; transition: transform .2s; color: var(--text-light); }
+.topic-btn.open .arrow { transform: rotate(90deg); }
+.topic-content { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
+.topic-content.open { max-height: 2000px; }
+.topic-inner { padding: 16px; font-size: 14px; line-height: 1.8; }
+.topic-inner h3 { font-size: 15px; margin: 16px 0 8px; color: var(--primary); }
+.topic-inner h3:first-child { margin-top: 0; }
+.topic-inner ul { padding-left: 20px; margin: 6px 0; }
+.topic-inner li { margin: 4px 0; }
+.topic-inner .key { color: var(--danger); font-weight: 700; cursor: default; transition: all .2s; border-radius: 3px; padding: 0 2px; }
+.topic-inner .code { font-family: 'Cascadia Code', 'Consolas', monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+.topic-inner .highlight { background: #fef9c3; padding: 1px 4px; border-radius: 3px; }
+
+/* Notes self-test mode */
+.self-test-mode .key { background: #e2e8f0; color: transparent !important; border-radius: 4px; user-select: none; position: relative; }
+.self-test-mode .key::after { content: '?'; color: var(--text-light); position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); font-size: 12px; }
+.self-test-mode .key.revealed { color: var(--danger) !important; background: #fef2f2; }
+.self-test-mode .key.revealed::after { display: none; }
+
+/* Question Section */
+.section-select { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.section-select button { padding: 8px 16px; border: 2px solid var(--border); border-radius: 20px; background: var(--card); font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-light); transition: all .2s; }
+.section-select button.active { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+.section-select button:hover:not(.active) { border-color: #cbd5e1; }
+
+.q-card { padding: 16px; border-bottom: 1px solid var(--border); }
+.q-card:last-child { border-bottom: none; }
+.q-number { font-size: 12px; color: var(--primary); font-weight: 700; margin-bottom: 8px; }
+.q-text { font-size: 15px; line-height: 1.7; margin-bottom: 12px; }
+.q-options { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.q-option { padding: 10px 14px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 14px; transition: all .15s; line-height: 1.5; }
+.q-option:hover { border-color: #94a3b8; }
+.q-option.selected { border-color: var(--primary); background: var(--primary-light); }
+.q-option.correct { border-color: var(--success); background: #f0fdf4; }
+.q-option.wrong { border-color: var(--danger); background: #fef2f2; }
+.q-option.show-correct { border-color: var(--success); background: #f0fdf4; }
+
+.q-answer { font-size: 13px; padding: 12px; border-radius: 8px; margin-top: 8px; display: none; line-height: 1.6; }
+.q-answer.show { display: block; }
+.q-answer .label { font-weight: 700; }
+.q-answer.correct-ans { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.q-answer.wrong-ans { background: #fef2f2; border: 1px solid #fecaca; }
+
+.q-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.q-actions button { padding: 6px 16px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
+.btn-check { background: var(--primary); color: white; }
+.btn-check:hover { opacity: .9; }
+.btn-show-answer { background: #f1f5f9; color: var(--text); }
+.btn-show-answer:hover { background: #e2e8f0; }
+.btn-correct { background: var(--success); color: white; }
+.btn-wrong { background: var(--danger); color: white; }
+.btn-next { background: var(--warning); color: white; }
+.btn-add-wrong { background: #fff; color: var(--danger); border: 1.5px solid var(--danger) !important; }
+.btn-add-wrong:hover { background: var(--wrong-bg); }
+.btn-added-wrong { background: var(--success); color: white; opacity: .7; cursor: default !important; }
+
+.fill-group { margin-bottom: 16px; }
+.fill-group h4 { font-size: 14px; color: var(--text-light); margin-bottom: 8px; }
+.fill-blank { display: inline-block; min-width: 60px; border: none; border-bottom: 2px solid #cbd5e1; padding: 2px 6px; font-size: 14px; outline: none; transition: border-color .2s; font-family: inherit; }
+.fill-blank:focus { border-bottom-color: var(--primary); }
+.fill-blank.correct { border-bottom-color: var(--success); background: #f0fdf4; }
+.fill-blank.wrong { border-bottom-color: var(--danger); background: #fef2f2; }
+.fill-blank:disabled { opacity: .8; }
+
+/* Quiz Mode */
+.quiz-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+.quiz-stats { display: flex; gap: 16px; font-size: 14px; }
+.quiz-stats span { font-weight: 600; }
+.quiz-progress { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 16px; overflow: hidden; }
+.quiz-progress-bar { height: 100%; background: var(--primary); transition: width .3s; border-radius: 2px; }
+.quiz-result { text-align: center; padding: 40px 20px; }
+.quiz-result .score { font-size: 48px; font-weight: 800; color: var(--primary); }
+.quiz-result .detail { color: var(--text-light); margin-top: 8px; font-size: 16px; }
+.quiz-result .stars { font-size: 32px; margin-top: 12px; }
+
+/* New Questions */
+.new-q-section { text-align: center; padding: 20px; }
+.new-q-section p { color: var(--text-light); font-size: 14px; margin-bottom: 16px; }
+.generate-btn { padding: 12px 32px; border: none; border-radius: var(--radius); background: var(--primary); color: white; font-size: 15px; font-weight: 700; cursor: pointer; transition: all .15s; }
+.generate-btn:hover { opacity: .9; transform: translateY(-1px); }
+.generate-btn.small { padding: 8px 20px; font-size: 13px; }
+
+/* Fill Blank Check Buttons */
+.fill-check-area { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Search */
+.search-box { width: 100%; padding: 10px 16px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px; outline: none; margin-bottom: 12px; font-family: inherit; }
+.search-box:focus { border-color: var(--primary); }
+
+/* Wrong Questions */
+.wrong-card { padding: 16px; border-bottom: 1px solid var(--border); border-left: 4px solid var(--danger); }
+.wrong-card:last-child { border-bottom: none; }
+.wrong-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; margin-bottom: 8px; }
+.wrong-meta .w-tag { padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+.wrong-meta .w-date { color: var(--text-light); }
+.w-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.btn-forget { background: var(--success); color: white; }
+.btn-forget:hover { opacity: .9; }
+.btn-retry-wrong { background: var(--primary); color: white; }
+.btn-retry-wrong:hover { opacity: .9; }
+.wrong-empty { text-align: center; padding: 40px 20px; color: var(--text-light); }
+.wrong-empty .big { font-size: 48px; margin-bottom: 12px; }
+
+/* Wrong Quiz Mode */
+.wrong-quiz-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+.wrong-quiz-progress { font-size: 13px; color: var(--text-light); }
+
+/* Responsive */
+@media (max-width: 600px) {
+  header { padding: 14px 16px; }
+  header h1 { font-size: 18px; }
+  nav button { font-size: 12px; padding: 10px 4px; min-width: 50px; }
+  main { padding: 12px; }
+  .q-text { font-size: 14px; }
+}
+
+/* Tag badges */
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+.tag-8088 { background: #dbeafe; color: #1d4ed8; }
+.tag-8259 { background: #fce7f3; color: #be185d; }
+.tag-8253 { background: #d1fae5; color: #047857; }
+.tag-8255 { background: #fef3c7; color: #b45309; }
+.tag-asm { background: #ede9fe; color: #6d28d9; }
+.tag-mem { background: #ffedd5; color: #c2410c; }
+.tag-int { background: #ccfbf1; color: #0f766e; }
+.tag-com { background: #fce4ec; color: #c62828; }
+.tag-wrong { background: var(--wrong-bg); color: var(--danger); }
+.tag-fill { background: #e0e7ff; color: #4338ca; }
+.tag-choice { background: #dbeafe; color: #1d4ed8; }
+.tag-tf { background: #fce7f3; color: #be185d; }
+.tag-prog { background: #d1fae5; color: #047857; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>微机原理复习宝典</h1>
+  <p>8088 · 8259A · 8253 · 8255 · 汇编 · 存储器</p>
+</header>
+
+<nav id="mainNav">
+  <button class="active" data-tab="notes">📖 笔记</button>
+  <button data-tab="practice">✏️ 刷题</button>
+  <button data-tab="quiz">🎯 考试</button>
+  <button data-tab="newq">🆕 新题</button>
+  <button data-tab="wrong">❌ 错题 <span class="badge" id="wrongBadge">0</span></button>
+</nav>
+
+<main id="tabNotes" class="active">
+  <div class="tab-header">
+    <h2>📖 笔记背诵</h2>
+    <p>考试重点速记，展开知识点开始背诵</p>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+      <button id="notesSelfTestBtn" class="btn-show-answer" onclick="toggleNotesSelfTest()" style="padding:6px 16px;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">🔍 挂空自测</button>
+      <span id="selfTestProgress" style="font-size:12px;color:var(--text-light);display:none;align-self:center;"></span>
+    </div>
+  </div>
+  <div class="search-box-wrap">
+    <input class="search-box" id="notesSearch" placeholder="搜索笔记关键词..." oninput="filterNotes()">
+  </div>
+  <div id="notesContainer"></div>
+</main>
+
+<main id="tabPractice">
+  <div class="tab-header">
+    <h2>✏️ 刷题模式</h2>
+    <p>按题型练习，答错的题自动加入错题本</p>
+  </div>
+  <div class="section-select" id="practiceNav"></div>
+  <div id="practiceContainer"></div>
+</main>
+
+<main id="tabQuiz">
+  <div class="tab-header">
+    <h2>🎯 模拟考试</h2>
+    <p>随机抽题，计时答题，答错的自动记入错题本</p>
+  </div>
+  <div id="quizSetup">
+    <div class="card" style="padding:20px;text-align:center;">
+      <p style="margin-bottom:16px;color:var(--text-light);">选择题目数量和类型开始模拟考试</p>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;">
+        <label style="font-size:14px;"><input type="checkbox" id="qzFill" checked> 填空</label>
+        <label style="font-size:14px;"><input type="checkbox" id="qzChoice" checked> 选择</label>
+        <label style="font-size:14px;"><input type="checkbox" id="qzTF" checked> 判断</label>
+        <label style="font-size:14px;"><input type="checkbox" id="qzProg" checked> 编程</label>
+      </div>
+      <div style="margin-bottom:16px;">
+        <button onclick="setQuizCount(5)" class="section-select-btn" id="qc5" style="padding:8px 20px;border:2px solid var(--border);border-radius:20px;background:var(--primary-light);font-weight:600;cursor:pointer;margin:4px;">5题</button>
+        <button onclick="setQuizCount(10)" class="section-select-btn" id="qc10" style="padding:8px 20px;border:2px solid var(--border);border-radius:20px;background:var(--primary-light);font-weight:600;cursor:pointer;margin:4px;">10题</button>
+        <button onclick="setQuizCount(20)" class="section-select-btn" id="qc20" style="padding:8px 20px;border:2px solid var(--border);border-radius:20px;font-weight:600;cursor:pointer;margin:4px;">20题</button>
+      </div>
+      <button onclick="startQuiz()" style="padding:12px 40px;border:none;border-radius:var(--radius);background:var(--primary);color:white;font-size:16px;font-weight:700;cursor:pointer;">开始考试</button>
+    </div>
+  </div>
+  <div id="quizArea" style="display:none;"></div>
+</main>
+
+<main id="tabNewq">
+  <div class="tab-header">
+    <h2>🆕 新题生成</h2>
+    <p>同类型变体题目，巩固薄弱环节</p>
+  </div>
+  <div class="new-q-section card">
+    <p>基于已掌握的知识点，生成新的练习题。</p>
+    <p style="font-size:13px;margin-bottom:16px;">可选择生成类型：</p>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;">
+      <button onclick="selectGenType('random')" class="section-select-btn" id="gt-random" style="padding:8px 16px;border:2px solid var(--primary);border-radius:20px;background:var(--primary-light);font-weight:600;cursor:pointer;">全部随机</button>
+      <button onclick="selectGenType('choice')" class="section-select-btn" id="gt-choice" style="padding:8px 16px;border:2px solid var(--border);border-radius:20px;font-weight:600;cursor:pointer;">选择题</button>
+      <button onclick="selectGenType('fill')" class="section-select-btn" id="gt-fill" style="padding:8px 16px;border:2px solid var(--border);border-radius:20px;font-weight:600;cursor:pointer;">填空题</button>
+      <button onclick="selectGenType('tf')" class="section-select-btn" id="gt-tf" style="padding:8px 16px;border:2px solid var(--border);border-radius:20px;font-weight:600;cursor:pointer;">判断题</button>
+      <button onclick="selectGenType('prog')" class="section-select-btn" id="gt-prog" style="padding:8px 16px;border:2px solid var(--border);border-radius:20px;font-weight:600;cursor:pointer;">编程题</button>
+    </div>
+    <button onclick="generateNewQuestions()" class="generate-btn">🔨 生成新题</button>
+  </div>
+  <div id="newQuestionsContainer"></div>
+</main>
+
+<main id="tabWrong">
+  <div class="tab-header">
+    <h2>❌ 错题本</h2>
+    <p>答错的题都在这里，集中攻克薄弱环节</p>
+  </div>
+  <div id="wrongStats" style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+    <span style="font-size:13px;color:var(--text-light);" id="wrongCountDisplay">共 0 道错题</span>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+    <button onclick="startWrongQuiz()" class="generate-btn small" id="wrongQuizBtn" style="display:none;">🎯 错题重练</button>
+    <button onclick="clearAllWrong()" class="btn-show-answer" style="padding:8px 20px;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;border:1px solid var(--danger);color:var(--danger);background:#fff;">🗑️ 清空错题本</button>
+  </div>
+  <div id="wrongContainer"></div>
+  <div id="wrongQuizArea" style="display:none;"></div>
+</main>
+
+<script>
+// ============================================================
+// DATA: Notes
+// ============================================================
+const NOTES = [
+  { id: "cpu", icon: "🖥️", color: "#dbeafe", title: "8088 CPU 体系结构",
+    content: `
+<h3>基本特性</h3>
+<ul>
+  <li><span class="key">16位</span>微处理器，<span class="key">8位</span>外部数据总线</li>
+  <li><span class="key">20根</span>地址线（A19~A0），寻址空间 <span class="key">1MB</span>（2²⁰B）</li>
+  <li>采用<span class="key">分段管理</span>方式，每段最大 <span class="key">64KB</span></li>
+</ul>
+<h3>内部结构</h3>
+<ul>
+  <li><span class="key">BIU</span>（总线接口部件）：负责指令预取、总线控制</li>
+  <li><span class="key">EU</span>（执行部件）：负责指令译码和执行</li>
+</ul>
+<h3>物理地址计算</h3>
+<p>物理地址 = <span class="key">段地址 × 16 + 偏移地址</span></p>
+<p>例：CS=1000H，IP=0200H → 物理地址 = 10000H + 0200H = <span class="key">10200H</span></p>
+<h3>内部寄存器（14个16位）</h3>
+<ul>
+  <li><b>通用寄存器</b>：AX（累加器）、BX（基址）、CX（计数）、DX（数据），均可拆成H/L两个8位</li>
+  <li><b>指针/变址</b>：SP（栈顶）、BP（基址→SS）、SI（源变址→DS）、DI（目的变址→DS）</li>
+  <li><b>段寄存器</b>：CS（代码段）、DS（数据段）、SS（堆栈段）、ES（附加段）</li>
+  <li><b>控制</b>：IP（指令指针）、FLAGS（标志寄存器）</li>
+</ul>
+<h3>重要引脚</h3>
+<ul>
+  <li><span class="key">INTR</span>：可屏蔽中断请求（受IF控制）</li>
+  <li><span class="key">NMI</span>：非屏蔽中断请求（不受IF控制）</li>
+  <li><span class="key">RD</span>/<span class="key">WR</span>：读写控制信号（均为<span class="key">输出</span>）</li>
+  <li>地址线20根（不是24根！），数据线8位（不是16位！）</li>
+</ul>
+<h3>堆栈操作</h3>
+<ul>
+  <li>每次操作<span class="key">16位</span>（一个字），<span class="key">后进先出</span></li>
+  <li>PUSH：SP ← SP-2，再写入；POP：先读出，SP ← SP+2</li>
+  <li>默认段寄存器：<span class="key">SS</span></li>
+</ul>
+<h3>标志寄存器 FLAGS</h3>
+<ul>
+  <li><b>状态标志</b>：CF（进位）、PF（奇偶）、AF（辅助进位）、ZF（零）、SF（符号）、OF（溢出）</li>
+  <li><b>控制标志</b>：IF（中断允许）、DF（方向）、TF（单步）</li>
+  <li>逻辑运算（AND/OR/XOR/TEST）执行后 <span class="key">CF=OF=0</span></li>
+</ul>
+<h3>常见指令</h3>
+<ul>
+  <li><span class="code">MOV 目的, 源</span>：不能两个操作数同时为内存</li>
+  <li><span class="code">MOV DS, 1234H</span>：<span class="key">非法</span>！段寄存器不能直接接收立即数</li>
+  <li><span class="code">CMP 目的, 源</span>：执行减法<span class="key">但不修改操作数</span>，只影响标志位</li>
+  <li><span class="code">TEST 目的, 源</span>：逻辑与运算，不修改操作数，只影响标志（ZF/SF/PF）</li>
+  <li><span class="code">JZ/JC</span>条件转移只能<span class="key">段内短转移</span>（-128~+127字节）</li>
+  <li>BP默认段寄存器为<span class="key">SS</span>（堆栈段），BX/SI/DI默认<span class="key">DS</span>（数据段）</li>
+  <li>I/O地址 > FFH 必须用 <span class="key">DX</span> 寄存器间接寻址</li>
+</ul>
+    `.trim()
+  },
+  { id: "int", icon: "🔔", color: "#fce7f3", title: "8259A 中断控制器",
+    content: `
+<h3>基本功能</h3>
+<ul>
+  <li><span class="key">可编程中断控制器</span>，单片可管理 <span class="key">8级</span> 中断（IR0~IR7）</li>
+  <li>N片级联可管理 <span class="key">7N+1</span> 级中断</li>
+  <li>例：3片级联 = 22级；4片 = 29级；1主+8从 = 57级</li>
+  <li>一个主片最多接 <span class="key">8片</span> 从片</li>
+</ul>
+<h3>初始化命令字（ICW）—— 顺序不能变！</h3>
+<ul>
+  <li><b>ICW1</b>：设置触发方式（边沿/电平）、单片/级联、是否需要ICW4</li>
+  <li><b>ICW2</b>：设置中断类型号的<span class="key">高5位</span></li>
+  <li><b>ICW3</b>：主从片级联关系（主片标记IR脚，从片标记自己编号）</li>
+  <li><b>ICW4</b>：8086/88模式、自动EOI、缓冲模式</li>
+</ul>
+<h3>操作命令字（OCW）</h3>
+<ul>
+  <li><b>OCW1</b>：中断屏蔽（屏蔽/开放某级中断）</li>
+  <li><b>OCW2</b>：发送EOI（中断结束命令）</li>
+  <li><b>OCW3</b>：中断查询</li>
+</ul>
+<h3>中断向量</h3>
+<ul>
+  <li>中断向量号 n：0~255，由 INT n 指令中的操作数指定</li>
+  <li>中断向量表地址 = <span class="key">n × 4</span>（段地址固定为 0000H）</li>
+  <li>每个向量占 <span class="key">4字节</span>：IP低→IP高→CS低→CS高</li>
+  <li>向量表范围：<span class="key">00000H~003FFH</span>（1KB，256个向量）</li>
+  <li>例：n=20H → 偏移地址 = 20H × 4 = <span class="key">80H</span></li>
+</ul>
+    `.trim()
+  },
+  { id: "timer", icon: "⏱️", color: "#d1fae5", title: "8253 定时/计数器",
+    content: `
+<h3>基本特性</h3>
+<ul>
+  <li>内含 <span class="key">3个</span> 独立的 <span class="key">16位</span> 计数器（Counter0/1/2）</li>
+  <li>计数方式：<span class="key">减法计数</span></li>
+  <li>每个计数器有3个引脚：<span class="key">CLK</span>（时钟输入）、<span class="key">GATE</span>（门控）、<span class="key">OUT</span>（输出）</li>
+</ul>
+<h3>6种工作方式</h3>
+<ul>
+  <li><b>方式0</b>：计数结束中断（OUT单次正跳变）</li>
+  <li><b>方式1</b>：可编程单稳脉冲</li>
+  <li><b>方式2</b>：频率发生器（OUT连续负脉冲）</li>
+  <li><b>方式3</b>：<span class="key">方波发生器</span>（OUT占空比50%方波）</li>
+  <li><b>方式4</b>：软件触发选通</li>
+  <li><b>方式5</b>：硬件触发选通</li>
+</ul>
+<h3>控制字格式（8位）</h3>
+<p>D7D6: 计数器选择（00=C0, 01=C1, 10=C2）<br>
+D5D4: 读写方式（00=锁存, 01=只低8位, 10=只高8位, <span class="key">11=先低后高</span>）<br>
+D3D2D1: 工作方式（000=0, 001=1, 010=2, 011=3, 100=4, 101=5）<br>
+D0: 计数制（0=二进制, 1=BCD）</p>
+<h3>初始化步骤（必考！）</h3>
+<p><span class="key">① 计算初值 N = f_CLK ÷ f_OUT<br>
+② 构造控制字<br>
+③ 先写控制字到控制字端口<br>
+④ 再写计数初值到计数器端口（先低8位，后高8位）</span></p>
+<h3>端口地址</h3>
+<p>基地址为310H时：<br>
+计数器0=310H, 计数器1=311H, 计数器2=312H, 控制字=<span class="key">313H</span></p>
+<h3>常见考题</h3>
+<p>例：8253基址310H，计数器1，方式3（方波），CLK=1MHz，输出1kHz<br>
+N = 1MHz ÷ 1kHz = <span class="key">1000</span> = 03E8H<br>
+控制字 = 01 11 011 0 = <span class="key">76H</span></p>
+    `.trim()
+  },
+  { id: "parallel", icon: "🔌", color: "#fef3c7", title: "8255 并行接口",
+    content: `
+<h3>基本特性</h3>
+<ul>
+  <li>可编程 <span class="key">并行</span> 接口，数据宽度 <span class="key">8位</span></li>
+  <li>内部3个数据端口：<span class="key">A口、B口、C口</span>（各8位）</li>
+  <li>共有 <span class="key">4个</span> 端口地址（A口、B口、C口、控制字寄存器）</li>
+</ul>
+<h3>端口地址</h3>
+<p>基地址300H时：A口=300H, B口=301H, C口=302H, 控制字=<span class="key">303H</span></p>
+<h3>C口位操作</h3>
+<ul>
+  <li>C口可拆分：上4位（PC7~PC4）和下4位（PC3~PC0）独立控制方向</li>
+</ul>
+<h3>3种工作方式</h3>
+<ul>
+  <li><b>方式0</b>：基本I/O（无握手信号）</li>
+  <li><b>方式1</b>：选通I/O（有握手信号）</li>
+  <li><b>方式2</b>：双向I/O（仅A口支持）</li>
+</ul>
+<h3>控制字区分</h3>
+<ul>
+  <li>方式控制字：<span class="key">D7=1</span> → 设置A/B/C口工作方式和方向</li>
+  <li>C口位控制字：<span class="key">D7=0</span> → 对C口某一位单独置1/清0</li>
+  <li>两者都写入<span class="key">同一个控制字端口</span>，CPU根据D7自动识别</li>
+</ul>
+    `.trim()
+  },
+  { id: "mem", icon: "💾", color: "#ffedd5", title: "存储器扩展",
+    content: `
+<h3>74LS138 译码器</h3>
+<ul>
+  <li>3线-8线译码器：输入 CBA（3位）→ 输出 Y0~Y7（8个）</li>
+  <li>使能条件：G1=1, G2A=G2B=0</li>
+  <li>例：CBA=101 → 二进制5 → 选中 <span class="key">Y5</span>（低电平有效）</li>
+</ul>
+<h3>SRAM 扩展计算</h3>
+<ul>
+  <li>8K×8位芯片：需要 <span class="key">13根</span> 地址线（A12~A0），容量8KB</li>
+  <li>16K×8位芯片：需要 <span class="key">14根</span> 地址线（A13~A0），容量16KB</li>
+  <li>片选由高位地址通过译码器产生</li>
+</ul>
+<h3>典型题目</h3>
+<p><b>题</b>：3片8K×8 SRAM，74LS138译码（G1=1,G2A=G2B=0），Y0/Y1/Y2接片选<br>
+A19~A17=000, A16=C, A15=B, A14=A<br>
+每片容量：<span class="key">8KB</span>，3片共 <span class="key">24KB</span><br>
+Y0(CBA=000)：<span class="key">00000H~01FFFH</span><br>
+Y1(CBA=001)：<span class="key">02000H~03FFFH</span><br>
+Y2(CBA=010)：<span class="key">04000H~05FFFH</span></p>
+<p><b>题</b>：4片16K×8 ROM，首地址C0000H<br>
+每片需要 <span class="key">14根</span> 片内地址线（A13~A0）<br>
+4片总容量 <span class="key">64KB</span><br>
+第1片：<span class="key">C0000H~C3FFFH</span><br>
+第2片：<span class="key">C4000H~C7FFFH</span><br>
+第3+4片：32KB，末地址 <span class="key">CFFFFH</span></p>
+    `.trim()
+  },
+  { id: "serial", icon: "📡", color: "#fce4ec", title: "串行通信",
+    content: `
+<h3>串行异步通信</h3>
+<ul>
+  <li>收发双方使用<span class="key">各自独立时钟</span></li>
+  <li>每个字符前后加起始位和停止位</li>
+  <li>字符帧格式：起始位 + 数据位 + 停止位</li>
+  <li>效率相对较低（每字符有额外起止位开销）</li>
+</ul>
+<h3>串行同步通信</h3>
+<ul>
+  <li>收发双方需要<span class="key">统一时钟源</span></li>
+  <li>以数据块为单位连续传输，用同步字符定界</li>
+  <li><span class="key">效率比异步高</span>（数据块中无需每字符加起止位）</li>
+</ul>
+    `.trim()
+  },
+  { id: "asm", icon: "⚙️", color: "#ede9fe", title: "汇编指令集",
+    content: `
+<h3>数据定义伪指令</h3>
+<ul>
+  <li><span class="code">DB</span>：定义字节（8位）</li>
+  <li><span class="code">DW</span>：定义字（<span class="key">16位</span>）</li>
+  <li><span class="code">DD</span>：定义双字（32位）</li>
+  <li><span class="code">DQ</span>：定义四字（64位）</li>
+</ul>
+<h3>段定义</h3>
+<p>正确格式：<span class="code">段名 SEGMENT ... 段名 ENDS</span></p>
+<h3>常见考点</h3>
+<ul>
+  <li><span class="code">XCHG AX, BX</span>：交换AX和BX内容，<span class="key">不影响标志位</span></li>
+  <li><span class="code">AND AX, BX</span>：逻辑与 → <span class="key">CF=0, OF=0</span>，影响ZF/SF/PF</li>
+  <li><span class="code">OR AL, 80H</span>：将AL最高位置1</li>
+  <li><span class="code">ADC AX, BX</span>：带进位加（AX + BX + CF → AX）</li>
+  <li><span class="code">NOT BX</span>：按位取反，<span class="key">不影响标志位</span></li>
+</ul>
+<h3>寻址方式</h3>
+<ul>
+  <li><span class="code">MOV AX, [2000H]</span>：直接寻址（默认DS段）</li>
+  <li><span class="code">MOV AX, [BP+4]</span>：基址寻址（默认<span class="key">SS</span>段）</li>
+  <li><span class="code">MOV AX, [SI]</span>：变址寻址（默认DS段）</li>
+</ul>
+    `.trim()
+  }
+];
+
+// ============================================================
+// DATA: Practice Questions
+// ============================================================
+const QUESTIONS = {
+  fillBlank: {
+    title: "填空题",
+    groups: [
+      { title: "第1组：8088 CPU基础", tag: "8088",
+        items: [
+          { blanks: ["16", "8"], text: "8088是____位微处理器，其外部数据总线宽度为____位。" },
+          { blanks: ["20", "A19", "A0", "1MB"], text: "8088共有____根地址线（____到____），可寻址内存空间为____。" },
+          { blanks: ["分段管理", "64KB"], text: "8088采用____方式管理存储器，每段最大容量为____。" },
+          { blanks: ["总线接口部件", "执行部件"], text: "8088内部两大功能部件是____（BIU）和____（EU）。" },
+          { blanks: ["16", "偏移", "10200H"], text: "物理地址 = 段地址 × ____ + ____地址；例如CS=1000H，IP=0200H，物理地址为____。" }
+        ]
+      },
+      { title: "第2组：8259A可编程中断控制器", tag: "8259",
+        items: [
+          { blanks: ["可编程中断控制器", "8", "IR0", "IR7"], text: "8259A是____，单片可管理____级中断，输入引脚为____到____。" },
+          { blanks: ["7N+1", "29"], text: "N片8259A级联可管理中断级数的公式为____；4片级联可管理____级中断。" },
+          { blanks: ["设置中断类型号的高5位"], text: "8259A初始化命令字依次为ICW1、ICW2、ICW3、ICW4，其中ICW2的作用是____。" },
+          { blanks: ["中断屏蔽", "发送EOI", "中断查询"], text: "8259A操作命令字OCW1用于____，OCW2用于____，OCW3用于____。" },
+          { blanks: ["8", "57"], text: "8259A级联时，一个主片最多可连接____片从片；若1主+8从，共可管理____级中断。" }
+        ]
+      },
+      { title: "第3组：8253可编程定时/计数器", tag: "8253",
+        items: [
+          { blanks: ["3", "16", "减法"], text: "8253内部含____个独立的____位计数器，计数方式为____计数。" },
+          { blanks: ["CLK", "GATE", "OUT"], text: "8253每个计数器有3个引脚：____（时钟输入）、____（门控）、____（输出）。" },
+          { blanks: ["6", "0", "5", "方波"], text: "8253共有____种工作方式（方式____到方式____），方式3产生____信号。" },
+          { blanks: ["310H", "313H"], text: "若8253端口基地址为310H，则计数器0端口为____，控制字端口为____。" },
+          { blanks: ["控制字", "计数初值", "低8位", "高8位"], text: "8253初始化时，需先向控制字端口写____，再向计数器端口写____；写16位初值时先写____字节，再写____字节。" }
+        ]
+      },
+      { title: "第4组：8255可编程并行接口", tag: "8255",
+        items: [
+          { blanks: ["并行", "8", "3", "A", "B", "C"], text: "8255是可编程____接口，数据宽度为____位，内部有____个数据端口（____口、____口、____口）。" },
+          { blanks: ["4", "300H", "303H"], text: "8255共有____个端口地址；若基地址为300H，则A口地址为____，控制字端口地址为____。" },
+          { blanks: ["7", "4", "3", "0"], text: "C口可拆分：上4位（PC____到PC____）和下4位（PC____到PC____）可独立控制方向。" },
+          { blanks: ["1", "0"], text: "8255方式控制字最高位D7=____时表示写工作方式；C口位控制字最高位D7=____。" },
+          { blanks: ["3", "基本I/O", "选通I/O", "双向I/O"], text: "8255有____种工作方式：方式0为____，方式1为____，方式2为____。" }
+        ]
+      }
+    ]
+  },
+  choice: [
+    { id: "c1", question: "以下关于8088 CPU引脚的说法，正确的是（  ）", tag: "8088",
+      options: ["A. 8088有24根地址线，可寻址16MB空间", "B. 8088外部数据总线为16位", "C. INTR是可屏蔽中断请求输入引脚", "D. RD和WR均为输入信号"],
+      answer: 2, explanation: "8088有20根地址线（1MB），外部数据总线8位，RD/WR均为输出。选C。"},
+    { id: "c2", question: "8088 CPU中，信号NMI与INTR的区别是（  ）", tag: "8088",
+      options: ["A. NMI优先级更低", "B. NMI可以被软件屏蔽", "C. INTR可以被IF标志屏蔽，NMI不能", "D. 两者完全相同"],
+      answer: 2, explanation: "NMI是非屏蔽中断，不受IF影响；INTR可屏蔽，受IF控制。选C。"},
+    { id: "c3", question: "以下伪指令中，用于定义一个字（16位）数据的是（  ）", tag: "asm",
+      options: ["A. DB", "B. DW", "C. DD", "D. DQ"],
+      answer: 1, explanation: "DB=字节8位, DW=字16位, DD=双字32位, DQ=四字64位。选B。"},
+    { id: "c4", question: "执行语句 BUF DB 10H, 20H, 30H 后，BUF单元的内容是（  ）", tag: "asm",
+      options: ["A. 10H 20H 30H 各占一个字", "B. 10H 20H 30H 各占一个字节", "C. 只有10H被定义", "D. 三个字节合并为一个双字"],
+      answer: 1, explanation: "DB定义字节，BUF依次存放10H、20H、30H，各占1字节。选B。"},
+    { id: "c5", question: "执行 AND AX, BX 后，以下说法正确的是（  ）", tag: "asm",
+      options: ["A. CF和OF可能不为0", "B. CF=0，OF=0", "C. 不影响任何标志位", "D. 只影响CF"],
+      answer: 1, explanation: "逻辑运算AND/OR/NOT执行后CF=OF=0，影响ZF/SF/PF。选B。"},
+    { id: "c6", question: "执行TEST AL, 0FH后，若AL=0F0H，则ZF=（  ）", tag: "asm",
+      options: ["A. 0", "B. 1", "C. 不确定", "D. 与CF相同"],
+      answer: 1, explanation: "0F0H AND 0FH = 00H，结果为0，ZF=1。TEST不改变AL。选B。"},
+    { id: "c7", question: "关于CMP指令，以下说法正确的是（  ）", tag: "asm",
+      options: ["A. CMP会修改目的操作数", "B. CMP不影响标志位", "C. CMP执行减法但不修改操作数，只影响标志位", "D. CMP等同于SUB"],
+      answer: 2, explanation: "CMP执行目的-源，影响标志但不回写结果；SUB会修改目的操作数。选C。"},
+    { id: "c8", question: "若AX=8000H，BX=8000H，CF=1，执行ADC AX, BX后，AX=（  ）", tag: "asm",
+      options: ["A. 0000H，CF=1", "B. 0001H，CF=1", "C. 0001H，CF=0", "D. 8001H，CF=0"],
+      answer: 1, explanation: "8000H+8000H+1=10001H，16位保留0001H，产生进位CF=1。选B。"},
+    { id: "c9", question: "8088堆栈操作的规则是（  ）", tag: "8088",
+      options: ["A. 每次操作8位，SP不变", "B. 每次操作16位，后进先出，PUSH时SP+2", "C. 每次操作16位，先进后出，PUSH时SP-2", "D. 每次操作8位，先进后出"],
+      answer: 2, explanation: "堆栈每次操作16位，后进先出，PUSH时SP-2（向低地址增长）。选C。"},
+    { id: "c10", question: "3片8259A级联，可管理中断级数为（  ）", tag: "8259",
+      options: ["A. 24级", "B. 22级", "C. 21级", "D. 16级"],
+      answer: 1, explanation: "7N+1=7×3+1=22级。选B。"},
+    { id: "c11", question: "中断向量号n=20H的中断向量存放在中断向量表中偏移地址为（  ）", tag: "int",
+      options: ["A. 20H", "B. 40H", "C. 80H", "D. 100H"],
+      answer: 2, explanation: "偏移地址=n×4=20H×4=80H。选C。"},
+    { id: "c12", question: "中断向量表的存储范围是（  ）", tag: "int",
+      options: ["A. 00000H—0FFFFH（64KB）", "B. 00000H—003FFH（1KB）", "C. F0000H—FFFFFH", "D. 没有固定位置"],
+      answer: 1, explanation: "中断向量表固定在内存最低1KB，00000H~003FFH。选B。"},
+    { id: "c13", question: "在汇编语言中，用于定义一个段的正确格式是（  ）", tag: "asm",
+      options: ["A. SEG 段名 … END 段名", "B. 段名 SEGMENT … 段名 ENDS", "C. BEGIN 段名 … END 段名", "D. 段名 SECTION … 段名 ENDSEC"],
+      answer: 1, explanation: "标准格式：段名 SEGMENT ... 段名 ENDS。选B。"},
+    { id: "c14", question: "一个中断向量在中断向量表中占（  ）个内存单元", tag: "int",
+      options: ["A. 2个字节", "B. 4个字节", "C. 8个字节", "D. 1个字节"],
+      answer: 1, explanation: "每个向量存CS:IP共4字节：IP低→IP高→CS低→CS高。选B。"},
+    { id: "c15", question: "指令 MOV AX, [BP+4] 中，操作数默认使用的段寄存器是（  ）", tag: "8088",
+      options: ["A. DS", "B. ES", "C. SS", "D. CS"],
+      answer: 2, explanation: "含BP的地址默认SS（堆栈段）。BX/SI/DI默认DS。选C。"},
+    { id: "c16", question: "当I/O端口地址为300H时，正确的OUT指令格式是（  ）", tag: "8088",
+      options: ["A. OUT 300H, AL", "B. OUT AL, 300H", "C. MOV DX, 300H; OUT DX, AL", "D. OUT AX, DX"],
+      answer: 2, explanation: "端口超FFH必须用DX间接寻址。选C。"},
+    { id: "c17", question: "8253工作在方式3时，OUT引脚输出（  ）", tag: "8253",
+      options: ["A. 单次负脉冲", "B. 连续方波", "C. 计数结束高电平", "D. 无输出"],
+      answer: 1, explanation: "方式3是方波发生器，输出占空比50%连续方波。选B。"},
+    { id: "c18", question: "8255方式控制字中，D7位的作用是（  ）", tag: "8255",
+      options: ["A. 选择工作方式，D7=1时设置工作方式", "B. 选择工作方式，D7=0时设置工作方式", "C. 控制A口方向", "D. 控制C口某位"],
+      answer: 0, explanation: "D7=1：方式控制字；D7=0：C口位控制字。选A。"},
+    { id: "c19", question: "DS=2000H，SI=0100H，指令MOV AX, [SI]访问的物理地址是（  ）", tag: "8088",
+      options: ["A. 2100H", "B. 20100H", "C. 21000H", "D. 20001H"],
+      answer: 1, explanation: "物理地址=DS×16+SI=20000H+0100H=20100H。选B。"},
+    { id: "c20", question: "74LS138译码器，输入CBA=101时，有效输出为（  ）", tag: "mem",
+      options: ["A. Y1", "B. Y4", "C. Y5", "D. Y6"],
+      answer: 2, explanation: "CBA=101→二进制5→选中Y5（低电平有效）。选C。"}
+  ],
+  trueFalse: [
+    { id: "tf1", question: "8088 CPU的地址线为16根，可寻址64KB内存空间。", tag: "8088", answer: false, explanation: "8088地址线20根，寻址空间1MB（2²⁰B）。"},
+    { id: "tf2", question: "8253可编程定时/计数器内部有4个独立计数器。", tag: "8253", answer: false, explanation: "8253有3个独立16位计数器（Counter0/1/2）。"},
+    { id: "tf3", question: "8253每个计数器的OUT引脚是输出引脚，不是输入引脚。", tag: "8253", answer: true, explanation: "CLK和GATE是输入，OUT是输出。"},
+    { id: "tf4", question: "指令 MOV [BX], [SI] 是合法的8088指令。", tag: "asm", answer: false, explanation: "8088不允许两个操作数同时为内存，须经寄存器中转。"},
+    { id: "tf5", question: "指令 MOV DS, 1234H 可以直接将立即数送入段寄存器。", tag: "asm", answer: false, explanation: "段寄存器不能直接接收立即数，须经通用寄存器中转。"},
+    { id: "tf6", question: "CMP AX, BX 执行后，AX的内容会被减法结果修改。", tag: "asm", answer: false, explanation: "CMP只影响标志位，不修改操作数。"},
+    { id: "tf7", question: "串行异步通信中，发送方和接收方使用各自独立的时钟，每个字符前后加起止位。", tag: "8088", answer: true, explanation: "异步通信各自时钟，字符帧格式含起始位+数据位+停止位。"},
+    { id: "tf8", question: "串行同步通信效率比异步通信高。", tag: "8088", answer: true, explanation: "同步以数据块为单位，不需要每字符加起止位，效率更高。"},
+    { id: "tf9", question: "条件转移指令（如JZ、JC）可以实现段间远转移。", tag: "asm", answer: false, explanation: "条件转移只能段内短转移（-128~+127字节）。"},
+    { id: "tf10", question: "8088 CPU中，当端口地址超过FFH时，必须用DX寄存器进行I/O间接寻址。", tag: "8088", answer: true, explanation: "I/O直接寻址仅限≤FFH；超过FFH必须用DX。"},
+    { id: "tf11", question: "8255的C口不可以分成上下两组单独控制。", tag: "8255", answer: false, explanation: "C口可拆分PC7~PC4和PC3~PC0独立控制方向。"},
+    { id: "tf12", question: "4片8259A级联可以管理32级中断。", tag: "8259", answer: false, explanation: "4片=8+7+7+7=29级（7N+1=29）。"},
+    { id: "tf13", question: "PUSH AX 执行时，SP先减2，再将AX内容压入SS:SP所指内存。", tag: "8088", answer: true, explanation: "PUSH流程：SP=SP-2，然后写入新的SP地址。"},
+    { id: "tf14", question: "8253工作方式2是方波发生器，输出占空比50%的方波。", tag: "8253", answer: false, explanation: "方式2是频率发生器（负脉冲）；方式3才是方波发生器。"},
+    { id: "tf15", question: "8088的BP寄存器与BX一样，默认段寄存器都是DS。", tag: "8088", answer: false, explanation: "BX默认DS；BP默认SS（堆栈段）。"},
+    { id: "tf16", question: "8253初始化时，应先向计数器端口写入计数初值，再向控制字端口写入控制字。", tag: "8253", answer: false, explanation: "必须先写控制字，再写计数初值；顺序不能颠倒。"}
+  ],
+  shortAnswer: [
+    { id: "sa1", question: "列出8088 CPU的全部内部寄存器，按分组写出名称和主要用途。", tag: "8088",
+      answer: "通用：AX（累加）、BX（基址）、CX（计数）、DX（数据），各可拆H/L两8位。<br>指针/变址：SP（栈顶）、BP（基址SS）、SI（源变址DS）、DI（目的变址DS）。<br>段：CS（代码段）、DS（数据段）、SS（堆栈段）、ES（附加段）。<br>控制：IP（指令指针）、FLAGS（标志寄存器）。共14个16位寄存器。"},
+    { id: "sa2", question: "BP和BX寄存器作为基地址使用时，各自默认的段寄存器是什么？为何有此区别？", tag: "8088",
+      answer: "BP默认SS（堆栈段），BX默认DS（数据段）。BP专门访问堆栈帧参数/局部变量，故默认SS；BX一般数据访问，默认DS。"},
+    { id: "sa3", question: "什么是中断向量号？如何通过中断向量号找到中断服务程序的入口地址？", tag: "int",
+      answer: "中断向量号n（0~255）由INT n指令指定。① 向量表地址=n×4（段地址固定0000H）；② 该地址连续4字节：IP低→IP高→CS低→CS高；③ CPU取出CS:IP跳转到中断服务程序。向量表位于00000H~003FFH（1KB）。"},
+    { id: "sa4", question: "解释8259A可编程中断控制器的初始化过程。ICW1~ICW4各自设置什么内容？", tag: "8259",
+      answer: "ICW1：触发方式（边沿/电平）、单片/级联、是否需要ICW4。ICW2：中断类型号高5位。ICW3：主从级联关系。ICW4：8086/88模式、自动EOI、缓冲模式。顺序不能改变。"},
+    { id: "sa5", question: "8253定时/计数器初始化需要哪些步骤？写入顺序是什么？", tag: "8253",
+      answer: "① 计算初值N=f_CLK÷f_OUT；② 确定工作方式；③ 构造控制字（D7D6计数值、D5D4读写、D3D2D1方式、D0数制）；④ 先向控制字端口OUT控制字；⑤ 再向计数器端口OUT初值（先低后高）。"},
+    { id: "sa6", question: "8255并行接口的方式控制字和C口位控制字有何区别？如何在程序中区分两者？", tag: "8255",
+      answer: "方式控制字D7=1，设A/B/C口工作方式和方向。C口位控制字D7=0，对C口某一位置1/清0。都写入控制字端口，CPU根据D7自动识别。"},
+    { id: "sa7", question: "串行同步通信和串行异步通信有何区别？（时钟、数据组织、效率）", tag: "8088",
+      answer: "时钟：同步统一时钟源，异步各自独立。数据：同步以数据块连续传输+同步字符，异步以字符为单位+起始/停止位。效率：同步更高（无需每字符起止位）。"},
+    { id: "sa8", question: "执行以下程序后，AX、BX、CX、DX各寄存器的值是多少？<br>MOV AX, 1234H<br>MOV BX, 5678H<br>XCHG AX, BX<br>MOV CX, AX<br>ADD DX, 0<br>HLT", tag: "asm",
+      answer: "AX=5678H（XCHG后得原BX），BX=1234H（XCHG后得原AX），CX=5678H（MOV CX,AX），DX=初始值（ADD DX,0不改变DX）。"}
+  ],
+  programming: [
+    { id: "p1", question: "将AX和BX的内容互换，要求不使用XCHG指令，用4条指令完成，最后HLT。", tag: "asm", answer: "MOV CX, AX<br>MOV AX, BX<br>MOV BX, CX<br>HLT"},
+    { id: "p2", question: "将AL的高4位清零，低4位保持不变，用3条指令完成，最后HLT。", tag: "asm", answer: "AND AL, 0FH<br>HLT<br>（或：MOV BL, AL / AND AL, 0FH / HLT）"},
+    { id: "p3", question: "将内存DS:2000H处的一个字读入AX，与BX相加，结果存回DS:2000H，最后HLT。", tag: "asm", answer: "MOV AX, [2000H]<br>ADD AX, BX<br>MOV [2000H], AX<br>HLT"},
+    { id: "p4", question: "从端口310H读入一个字节到AL，将AL最高位置1，其余位不变，再将结果送回310H端口，最后HLT。", tag: "asm", answer: "MOV DX, 310H<br>IN AL, DX<br>OR AL, 80H<br>OUT DX, AL<br>HLT"},
+    { id: "p5", question: "8253基地址310H，计数器1，方式3（方波），CLK=1MHz，输出1kHz，二进制计数，先低后高。写出完整初始化程序。", tag: "8253", answer: "; N=1MHz÷1kHz=1000=03E8H<br>; 控制字=01 11 011 0=76H<br>MOV DX, 313H<br>MOV AL, 76H<br>OUT DX, AL<br>MOV DX, 311H<br>MOV AX, 1000<br>OUT DX, AL<br>MOV AL, AH<br>OUT DX, AL<br>HLT"},
+    { id: "p6", question: "分析程序执行后各寄存器的值：<br>MOV AX, 0FF00H<br>MOV BX, 00FFH<br>ADD AX, BX<br>NOT BX<br>AND AX, BX<br>HLT", tag: "asm", answer: "AX=FF00H, BX=00FFH → ADD后AX=FFFFH → NOT BX=FF00H → AND后AX=FF00H<br>结果：AX=FF00H, BX=FF00H, CF=0, ZF=0, OF=0"}
+  ],
+  comprehensive: [
+    { id: "comp1", question: "系统用74LS138译码器和3片8K×8位SRAM扩展存储器。A19~A13接74LS138，A12~A0接片内地址，G1=1,G2A=G2B=0，Y0/Y1/Y2接片选。A19~A17=000，A16=C，A15=B，A14=A。<br><br>(1) 每片容量？3片共多少？<br>(2) Y0(CBA=000)地址范围？<br>(3) Y1(CBA=001)地址范围？<br>(4) Y2(CBA=010)地址范围？<br>(5) 选中Y2时A16A15A14=？", tag: "mem",
+      answer: "(1) 8KB/片，共24KB。<br>(2) Y0: 00000H~01FFFH<br>(3) Y1: 02000H~03FFFH<br>(4) Y2: 04000H~05FFFH<br>(5) 010"},
+    { id: "comp2", question: "4片16K×8位ROM扩展8088内存，地址连续，首地址C0000H。<br><br>(1) 每片需多少根片内地址线？<br>(2) 4片总容量？<br>(3) 第1片地址范围？<br>(4) 第2片地址范围？<br>(5) 第3、4片合计占多少KB？末地址？", tag: "mem",
+      answer: "(1) 14根（A13~A0）<br>(2) 64KB<br>(3) C0000H~C3FFFH<br>(4) C4000H~C7FFFH<br>(5) 32KB, CFFFFH"},
+    { id: "comp3", question: "8253端口基地址40H（控制字端口43H）。计数器0初始化：方式2（频率发生器），CLK=2MHz，输出500Hz，二进制计数，先低后高。<br><br>(1) 计数初值N=？<br>(2) 控制字=？<br>(3) 写出完整初始化程序。", tag: "8253",
+      answer: "(1) N=2MHz÷500Hz=4000=0FA0H<br>(2) 控制字=00110100B=34H<br>(3) MOV AL, 34H → OUT 43H, AL → MOV AX, 4000 → OUT 40H, AL → MOV AL, AH → OUT 40H, AL → HLT"},
+    { id: "comp4", question: "8253端口地址310H~313H。用计数器2，方式0（计数结束中断），二进制，只写低8位。CLK=1MHz，计数1000个脉冲后中断。<br><br>(1) 计数初值N=？（注意只写低8位）<br>(2) 控制字=？<br>(3) 写出初始化程序。", tag: "8253",
+      answer: "(1) N=1000=03E8H，只写低8位则实际=E8H=232<br>(2) 控制字=10 01 000 0=90H<br>(3) MOV DX, 313H → MOV AL, 90H → OUT DX, AL → MOV DX, 312H → MOV AL, 0E8H → OUT DX, AL → HLT"}
+  ]
+};
+
+// ============================================================
+// DATA: Generated Questions (parameter-varied copies)
+// ============================================================
+const GENERATED_POOL = {
+  choice: [
+    { question: "8088 CPU的地址线数量为（  ）", tag: "8088",
+      options: ["A. 16根，寻址64KB", "B. 20根，寻址1MB", "C. 24根，寻址16MB", "D. 32根，寻址4GB"],
+      answer: 1, explanation: "8088有20根地址线，寻址空间1MB。"},
+    { question: "8253方式控制字中，D5D4=11表示（  ）", tag: "8253",
+      options: ["A. 只读低8位", "B. 只读高8位", "C. 先读低8位后读高8位", "D. 锁存当前计数值"],
+      answer: 2, explanation: "D5D4=11表示先低后高16位读写。"},
+    { question: "某8253计数器CLK=2MHz，要求OUT=2kHz方波，初值N为（  ）", tag: "8253",
+      options: ["A. 100", "B. 1000", "C. 2000", "D. 4000"],
+      answer: 1, explanation: "N=2MHz÷2kHz=1000。"},
+    { question: "8088 CPU中，下列哪个寄存器默认使用SS段？（  ）", tag: "8088",
+      options: ["A. BX", "B. SI", "C. DI", "D. BP"],
+      answer: 3, explanation: "BP默认SS段。"},
+    { question: "8255的A口工作在方式2时，该方式为（  ）", tag: "8255",
+      options: ["A. 基本I/O", "B. 选通I/O", "C. 双向I/O", "D. 位控模式"],
+      answer: 2, explanation: "方式2为双向I/O，仅A口支持。"},
+    { question: "中断向量号n的存储地址计算公式为（  ）", tag: "int",
+      options: ["A. n×2", "B. n×4", "C. n×8", "D. n×16"],
+      answer: 1, explanation: "每个中断向量4字节，地址=n×4。"},
+    { question: "以下哪个是8088的非屏蔽中断引脚？（  ）", tag: "8088",
+      options: ["A. INTR", "B. NMI", "C. HOLD", "D. RESET"],
+      answer: 1, explanation: "NMI是非屏蔽中断引脚。"},
+    { question: "8255基本地址300H时，B口地址为（  ）", tag: "8255",
+      options: ["A. 300H", "B. 301H", "C. 302H", "D. 303H"],
+      answer: 1, explanation: "A=300H, B=301H, C=302H, 控制字=303H。"},
+    { question: "4片8259A级联可管理的中断级数为（  ）", tag: "8259",
+      options: ["A. 32级", "B. 29级", "C. 28级", "D. 24级"],
+      answer: 1, explanation: "7N+1=7×4+1=29级。"},
+    { question: "执行NOT指令后，对标志位的影响是（  ）", tag: "asm",
+      options: ["A. 影响ZF", "B. 影响CF", "C. 影响OF", "D. 不影响任何标志位"],
+      answer: 3, explanation: "NOT指令不影响任何标志位。"}
+  ],
+  fill: [
+    { text: "8088外部数据总线为____位，内部为____位。", blanks: ["8", "16"], tag: "8088" },
+    { text: "8253工作方式____产生连续方波，方式____产生连续负脉冲。", blanks: ["3", "2"], tag: "8253" },
+    { text: "74LS138是____线-____线译码器。", blanks: ["3", "8"], tag: "mem" },
+    { text: "8255C口位控制字的D7=____，方式控制字的D7=____。", blanks: ["0", "1"], tag: "8255" },
+    { text: "中断向量表共____个中断向量，每个占____字节。", blanks: ["256", "4"], tag: "int" },
+    { text: "8259A单片可管理____级中断，级联时公式为____。", blanks: ["8", "7N+1"], tag: "8259" },
+    { text: "汇编中定义字节用____，定义字用____。", blanks: ["DB", "DW"], tag: "asm" },
+    { text: "PUSH操作时SP先____，POP操作时SP先____。", blanks: ["减2", "加2"], tag: "8088" }
+  ],
+  tf: [
+    { question: "8088的INTR引脚输入的中断可以被软件屏蔽。", tag: "8088", answer: true, explanation: "INTR受IF标志控制，可屏蔽。" },
+    { question: "8253每个计数器都是16位的加法计数器。", tag: "8253", answer: false, explanation: "是16位减法计数器。" },
+    { question: "8255的A口、B口、C口都可以工作在方式2。", tag: "8255", answer: false, explanation: "方式2仅A口支持。" },
+    { question: "串行同步通信效率比异步通信高。", tag: "8088", answer: true, explanation: "同步无需每字符起止位。" },
+    { question: "8259A的ICW1用于设置中断类型号。", tag: "8259", answer: false, explanation: "ICW2用于设置中断类型号高5位。" },
+    { question: "指令XCHG会影响标志位。", tag: "asm", answer: false, explanation: "XCHG不影响任何标志位。" },
+    { question: "8253初始化时必须先写控制字再写计数初值。", tag: "8253", answer: true, explanation: "顺序不能颠倒。" },
+    { question: "MOV AX, [BP]默认使用DS段寄存器。", tag: "8088", answer: false, explanation: "BP默认SS段。" }
+  ],
+  prog: [
+    { question: "将AL的低4位清零，高4位保持不变，用3条指令完成。", tag: "asm", answer: "AND AL, 0F0H<br>HLT" },
+    { question: "将AX和CX的内容互换，用3条指令完成（可用XCHG）。", tag: "asm", answer: "XCHG AX, CX<br>HLT" },
+    { question: "从端口80H读入字节，加1后写回，最后HLT。", tag: "asm", answer: "IN AL, 80H<br>INC AL<br>OUT 80H, AL<br>HLT" },
+    { question: "8253基址40H，计数器2，方式3，CLK=1MHz，输出500Hz，二进制，先低后高。写出初始化程序。", tag: "8253", answer: "; N=1MHz÷500Hz=2000=07D0H<br>; 控制字=10 11 011 0=B6H<br>MOV AL, 0B6H<br>OUT 43H, AL<br>MOV AX, 2000<br>OUT 42H, AL<br>MOV AL, AH<br>OUT 42H, AL<br>HLT" }
+  ]
+};
+
+// ============================================================
+// APP STATE
+// ============================================================
+let genType = 'random';
+let quizCount = 10;
+let quizQuestions = [];
+let quizIndex = 0;
+let quizScore = 0;
+let quizAnswered = [];
+let currentSection = 'choice';
+let quizTimer = null;
+let quizTime = 0;
+
+// Wrong questions state (persisted in localStorage)
+let wrongQuestions = [];
+
+// Notes self-test state
+let notesSelfTestOn = false;
+
+// Load wrong questions from localStorage
+function loadWrongQuestions() {
+  try {
+    const data = localStorage.getItem('mc_wrong_questions');
+    if (data) wrongQuestions = JSON.parse(data);
+  } catch(e) { wrongQuestions = []; }
+  updateWrongBadge();
+}
+
+function saveWrongQuestions() {
+  try {
+    localStorage.setItem('mc_wrong_questions', JSON.stringify(wrongQuestions));
+  } catch(e) {}
+  updateWrongBadge();
+}
+
+function updateWrongBadge() {
+  const badge = document.getElementById('wrongBadge');
+  if (badge) badge.textContent = wrongQuestions.length;
+  const countDisplay = document.getElementById('wrongCountDisplay');
+  if (countDisplay) countDisplay.textContent = `共 ${wrongQuestions.length} 道错题`;
+  const quizBtn = document.getElementById('wrongQuizBtn');
+  if (quizBtn) quizBtn.style.display = wrongQuestions.length > 0 ? 'inline-block' : 'none';
+}
+
+// ============================================================
+// WRONG QUESTIONS
+// ============================================================
+function addToWrong(q) {
+  // Check duplicates by id
+  if (q.id && wrongQuestions.some(w => w.id === q.id)) return;
+  wrongQuestions.push({ ...q, addedAt: Date.now() });
+  saveWrongQuestions();
+}
+
+function removeFromWrong(id) {
+  wrongQuestions = wrongQuestions.filter(w => w.id !== id);
+  saveWrongQuestions();
+  renderWrongQuestions();
+}
+
+function clearAllWrong() {
+  if (wrongQuestions.length === 0) return;
+  if (!confirm('确定清空所有错题吗？')) return;
+  wrongQuestions = [];
+  saveWrongQuestions();
+  renderWrongQuestions();
+}
+
+function getQuestionTypeLabel(q) {
+  if (q.type === 'fill') return '填空';
+  if (q.type === 'choice') return '选择';
+  if (q.type === 'tf') return '判断';
+  return '简答/编程';
+}
+
+function getQuestionTypeTag(q) {
+  if (q.type === 'fill') return 'fill';
+  if (q.type === 'choice') return 'choice';
+  if (q.type === 'tf') return 'tf';
+  return 'prog';
+}
+
+function renderWrongQuestions() {
+  const container = document.getElementById('wrongContainer');
+  const quizBtn = document.getElementById('wrongQuizBtn');
+
+  if (wrongQuestions.length === 0) {
+    container.innerHTML = '<div class="card wrong-empty"><div class="big">🎉</div><p>暂无错题，继续保持！</p></div>';
+    if (quizBtn) quizBtn.style.display = 'none';
+    return;
+  }
+
+  if (quizBtn) quizBtn.style.display = 'inline-block';
+
+  container.innerHTML = wrongQuestions.map((q, i) => {
+    const qText = q.question || (q.text || '');
+    const tagClass = getQuestionTypeTag(q);
+
+    return `<div class="wrong-card">
+      <div class="wrong-meta">
+        <span class="w-tag tag-${tagClass}">${getQuestionTypeLabel(q)}</span>
+        ${q.tag ? `<span class="w-tag tag-${q.tag}">${q.tag}</span>` : ''}
+        <span class="w-date">${new Date(q.addedAt).toLocaleDateString('zh-CN')}</span>
+      </div>
+      <div class="q-text" style="font-size:14px;margin-bottom:4px;">${qText.substring(0, 120)}${qText.length > 120 ? '...' : ''}</div>
+      ${q.explanation ? `<div class="q-answer show correct-ans" style="font-size:12px;margin-top:4px;">${q.explanation}</div>` : ''}
+      <div class="w-actions">
+        <button class="btn-forget" onclick="forgetWrong(${i})">✅ 已掌握</button>
+        <button class="btn-forget" onclick="removeFromWrong('${q.id}')" style="background:var(--text-light);">🗑️ 移除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function forgetWrong(idx) {
+  // Move to end as "reviewed" - actually just remove
+  removeFromWrong(wrongQuestions[idx].id);
+}
+
+// ============================================================
+// WRONG QUIZ (retry wrong questions)
+// ============================================================
+let wrongQuizActive = false;
+let wrongQuizQuestions = [];
+let wrongQuizIndex = 0;
+let wrongQuizScore = 0;
+
+function startWrongQuiz() {
+  if (wrongQuestions.length === 0) { alert('暂无错题！'); return; }
+
+  wrongQuizActive = true;
+  wrongQuizQuestions = [...wrongQuestions].sort(() => Math.random() - 0.5);
+  wrongQuizIndex = 0;
+  wrongQuizScore = 0;
+
+  document.getElementById('wrongContainer').style.display = 'none';
+  document.getElementById('wrongQuizBtn').style.display = 'none';
+  document.getElementById('wrongQuizArea').style.display = 'block';
+
+  renderWrongQuizQuestion();
+}
+
+function renderWrongQuizQuestion() {
+  const area = document.getElementById('wrongQuizArea');
+  if (wrongQuizIndex >= wrongQuizQuestions.length) {
+    showWrongQuizResult();
+    return;
+  }
+
+  const q = wrongQuizQuestions[wrongQuizIndex];
+  const total = wrongQuizQuestions.length;
+  const pct = wrongQuizIndex / total * 100;
+
+  let html = `
+    <div class="wrong-quiz-header">
+      <span class="wrong-quiz-progress">错题重练 · 第 ${wrongQuizIndex+1}/${total} 题</span>
+      <span style="font-size:13px;color:var(--success);font-weight:600;">✓ ${wrongQuizScore}</span>
+    </div>
+    <div class="quiz-progress"><div class="quiz-progress-bar" style="width:${pct}%"></div></div>
+  `;
+
+  html += `<div class="card"><div class="q-card">
+    <div class="q-number">${getQuestionTypeLabel(q)} <span class="tag tag-${q.tag||'asm'}">${q.tag||''}</span></div>
+    <div class="q-text">${q.question || q.text || ''}</div>`;
+
+  if (q.type === 'choice' && q.options) {
+    html += `<div class="q-options" id="wqzOpts">
+      ${q.options.map((o, oi) => `<div class="q-option" data-wqz="${oi}" onclick="wqzSelectChoice(${oi})">${o}</div>`).join('')}
+    </div>
+    <div style="margin-bottom:8px;"><button class="btn-check" onclick="wqzSubmitChoice()">提交</button></div>
+    <div class="q-answer" id="wqzResult">${q.explanation ? `<span class="label">解析：</span>${q.explanation}` : ''}</div>`;
+  } else if (q.type === 'tf') {
+    html += `<div class="q-options">
+      <div class="q-option" data-wqzf="true" onclick="wqzSelectTF(true)">✓ 正确</div>
+      <div class="q-option" data-wqzf="false" onclick="wqzSelectTF(false)">✗ 错误</div>
+    </div>
+    <div style="margin-bottom:8px;"><button class="btn-check" onclick="wqzSubmitTF()">提交</button></div>
+    <div class="q-answer" id="wqzResult">${q.explanation ? `<span class="label">解析：</span>${q.explanation}` : ''}</div>`;
+  } else {
+    html += `<div style="margin-bottom:8px;"><button class="btn-show-answer" onclick="document.getElementById('wqzResult').classList.toggle('show')">显示答案</button></div>
+    <div class="q-answer correct-ans" id="wqzResult">${q.answer || q.explanation || ''}</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-correct" onclick="wqzNext(true)">✓ 答对了</button>
+      <button class="btn-wrong" onclick="wqzNext(false)">✗ 还是不会</button>
+    </div>`;
+  }
+
+  html += `</div></div>
+    <div style="margin-top:8px;">
+      <button class="btn-show-answer" onclick="endWrongQuiz()" style="font-size:12px;">退出重练</button>
+    </div>`;
+
+  area.innerHTML = html;
+}
+
+let wqzChoice = null;
+let wqzTF = null;
+
+function wqzSelectChoice(oi) {
+  document.querySelectorAll('[data-wqz]').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`[data-wqz="${oi}"]`);
+  if (el) el.classList.add('selected');
+  wqzChoice = oi;
+}
+
+function wqzSubmitChoice() {
+  const q = wrongQuizQuestions[wrongQuizIndex];
+  if (wqzChoice === null) { alert('请先选择！'); return; }
+  const correct = wqzChoice === q.answer;
+  document.querySelectorAll('[data-wqz]').forEach(el => {
+    const oi = parseInt(el.dataset.wqz);
+    el.classList.remove('correct', 'wrong');
+    if (oi === wqzChoice) el.classList.add(correct ? 'correct' : 'wrong');
+    if (oi === q.answer && wqzChoice !== q.answer) el.classList.add('correct');
+    el.style.pointerEvents = 'none';
+  });
+  const result = document.getElementById('wqzResult');
+  result.classList.add('show');
+  result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+  // If answered correctly, remove from wrong
+  if (correct) {
+    removeFromWrong(q.id);
+    result.innerHTML = '<span class="label">✅ 回答正确！已从错题本移除</span>';
+  } else {
+    result.innerHTML = `<span class="label">❌ 再想想</span><br>${q.explanation || ''}`;
+  }
+  setTimeout(() => wqzNext(correct), 1500);
+}
+
+function wqzSelectTF(val) {
+  document.querySelectorAll('[data-wqzf]').forEach(el => el.classList.remove('selected'));
+  document.querySelector(`[data-wqzf="${val}"]`).classList.add('selected');
+  wqzTF = val;
+}
+
+function wqzSubmitTF() {
+  const q = wrongQuizQuestions[wrongQuizIndex];
+  if (wqzTF === null) { alert('请先选择！'); return; }
+  const val = wqzTF === 'true';
+  const correct = val === q.answer;
+  document.querySelectorAll('[data-wqzf]').forEach(el => {
+    const v = el.dataset.wqzf === 'true';
+    el.classList.remove('correct', 'wrong');
+    if (v === val) el.classList.add(correct ? 'correct' : 'wrong');
+    if (v === q.answer && val !== q.answer) el.classList.add('correct');
+    el.style.pointerEvents = 'none';
+  });
+  const result = document.getElementById('wqzResult');
+  result.classList.add('show');
+  result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+  if (correct) {
+    removeFromWrong(q.id);
+    result.innerHTML = '<span class="label">✅ 正确！已从错题本移除</span>';
+  } else {
+    result.innerHTML = `<span class="label">❌ 错误</span><br>${q.explanation || ''}`;
+  }
+  setTimeout(() => wqzNext(correct), 1500);
+}
+
+function wqzNext(correct) {
+  if (correct) wrongQuizScore++;
+  wrongQuizIndex++;
+  wqzChoice = null;
+  wqzTF = null;
+  renderWrongQuizQuestion();
+}
+
+function showWrongQuizResult() {
+  const total = wrongQuizQuestions.length;
+  const pct = Math.round(wrongQuizScore / total * 100);
+  document.getElementById('wrongQuizArea').innerHTML = `
+    <div class="card quiz-result">
+      <div class="score">${pct}%</div>
+      <div class="detail">${wrongQuizScore}/${total} 题回答正确</div>
+      <div class="stars" style="margin-top:8px;font-size:14px;color:var(--text-light);">
+        已掌握 ${wrongQuizScore} 题，移除出错题本
+      </div>
+      <div style="margin-top:24px;">
+        <button class="generate-btn" onclick="endWrongQuiz()">完成</button>
+      </div>
+    </div>
+  `;
+}
+
+function endWrongQuiz() {
+  wrongQuizActive = false;
+  document.getElementById('wrongContainer').style.display = 'block';
+  document.getElementById('wrongQuizArea').style.display = 'none';
+  document.getElementById('wrongQuizBtn').style.display = wrongQuestions.length > 0 ? 'inline-block' : 'none';
+  renderWrongQuestions();
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('main').forEach(m => m.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab' + btn.dataset.tab.charAt(0).toUpperCase() + btn.dataset.tab.slice(1)).classList.add('active');
+    if (btn.dataset.tab === 'wrong') renderWrongQuestions();
+  });
+});
+
+// ============================================================
+// NOTES
+// ============================================================
+function renderNotes() {
+  const container = document.getElementById('notesContainer');
+  container.innerHTML = NOTES.map(n => `
+    <div class="card">
+      <button class="topic-btn" onclick="toggleTopic('${n.id}')">
+        <span class="icon" style="background:${n.color}">${n.icon}</span>
+        <span>${n.title}</span>
+        <span class="arrow">▶</span>
+      </button>
+      <div class="topic-content" id="topic_${n.id}">
+        <div class="topic-inner" id="inner_${n.id}">${n.content}</div>
+      </div>
+    </div>
+  `).join('');
+}
+renderNotes();
+
+function toggleTopic(id) {
+  const content = document.getElementById('topic_' + id);
+  const btn = content.previousElementSibling;
+  content.classList.toggle('open');
+  btn.classList.toggle('open');
+  if (notesSelfTestOn) updateSelfTestProgress();
+}
+
+function filterNotes() {
+  const q = document.getElementById('notesSearch').value.toLowerCase();
+  document.querySelectorAll('.topic-btn').forEach(btn => {
+    const card = btn.closest('.card');
+    if (!q) { card.style.display = ''; return; }
+    const text = btn.textContent.toLowerCase() + card.querySelector('.topic-inner').textContent.toLowerCase();
+    card.style.display = text.includes(q) ? '' : 'none';
+  });
+}
+
+// ============================================================
+// NOTES SELF-TEST
+// ============================================================
+function toggleNotesSelfTest() {
+  notesSelfTestOn = !notesSelfTestOn;
+  const btn = document.getElementById('notesSelfTestBtn');
+  const progress = document.getElementById('selfTestProgress');
+
+  if (notesSelfTestOn) {
+    btn.textContent = '📖 退出自测';
+    btn.style.background = 'var(--primary)';
+    btn.style.color = 'white';
+    progress.style.display = 'inline-block';
+    // Add self-test class to all note containers
+    document.querySelectorAll('.topic-inner').forEach(el => el.classList.add('self-test-mode'));
+    // Make .key elements clickable to reveal
+    document.querySelectorAll('.topic-inner .key').forEach(el => {
+      el.style.cursor = 'pointer';
+      el.onclick = function() { this.classList.toggle('revealed'); updateSelfTestProgress(); };
+    });
+    // Expand all topics in self-test mode
+    document.querySelectorAll('.topic-content').forEach(el => {
+      if (!el.classList.contains('open')) {
+        el.classList.add('open');
+        el.previousElementSibling.classList.add('open');
+      }
+    });
+    updateSelfTestProgress();
+  } else {
+    btn.textContent = '🔍 挂空自测';
+    btn.style.background = '';
+    btn.style.color = '';
+    progress.style.display = 'none';
+    document.querySelectorAll('.topic-inner').forEach(el => el.classList.remove('self-test-mode'));
+    document.querySelectorAll('.topic-inner .key').forEach(el => {
+      el.classList.remove('revealed');
+      el.style.cursor = '';
+      el.onclick = null;
+    });
+  }
+}
+
+function updateSelfTestProgress() {
+  const allKeys = document.querySelectorAll('.topic-inner.open .key, .topic-content.open .key');
+  // Fallback: if no .open context, count all visible keys
+  let visibleKeys = [];
+  if (notesSelfTestOn) {
+    visibleKeys = document.querySelectorAll('.self-test-mode .key');
+  } else {
+    visibleKeys = allKeys;
+  }
+  const revealed = document.querySelectorAll('.self-test-mode .key.revealed');
+  const total = visibleKeys.length;
+  const done = revealed.length;
+  const progress = document.getElementById('selfTestProgress');
+  if (progress) {
+    progress.textContent = total > 0 ? `✅ ${done}/${total} 已掌握` : '加载中...';
+  }
+}
+
+// ============================================================
+// PRACTICE - Fill Blank
+// ============================================================
+function renderFillBlank(group, gi) {
+  return `<div class="fill-group">
+    <h4>${group.title}</h4>
+    ${group.items.map((item, qi) => {
+      const fbId = `fb_${gi}_${qi}`;
+      let html = `<div class="q-card"><div class="q-number">${gi+1}.${qi+1}</div><div class="q-text">`;
+      let idx = 0;
+      const segments = item.text.split(/(_{4,})/g);
+      segments.forEach(seg => {
+        if (/_{4,}/.test(seg) && idx < item.blanks.length) {
+          html += `<input class="fill-blank" id="${fbId}_b${idx}" data-answer="${item.blanks[idx]}" data-g="${gi}" data-q="${qi}" data-bi="${idx}" onkeydown="if(event.key==='Enter')checkFillBlanks(${gi},${qi})">`;
+          idx++;
+        } else {
+          html += seg;
+        }
+      });
+      const fillId = `fb_${gi}_${qi}`;
+      html += `</div>
+        <div class="fill-check-area">
+          <button class="btn-check" onclick="checkFillBlanks(${gi},${qi})">检查</button>
+          <button class="btn-show-answer" onclick="showFillAnswer(${gi},${qi})">显示答案</button>
+          <button class="btn-add-wrong" onclick="addFillToWrong(${gi},${qi})" id="fb_add_${gi}_${qi}">+ 错题本</button>
+        </div>
+        <div class="q-answer" id="fb_ans_${gi}_${qi}">
+          <span class="label">答案：</span>${item.blanks.join('、')}
+        </div>
+      </div>`;
+      return html;
+    }).join('')}
+  </div>`;
+}
+
+function checkFillBlanks(gi, qi) {
+  const group = QUESTIONS.fillBlank.groups[gi];
+  const item = group.items[qi];
+  let allCorrect = true;
+  item.blanks.forEach((ans, bi) => {
+    const input = document.getElementById(`fb_${gi}_${qi}_b${bi}`);
+    if (!input) return;
+    const val = input.value.trim();
+    input.classList.remove('correct', 'wrong');
+    if (val === ans) {
+      input.classList.add('correct');
+    } else {
+      input.classList.add('wrong');
+      allCorrect = false;
+    }
+  });
+  const ansDiv = document.getElementById(`fb_ans_${gi}_${qi}`);
+  ansDiv.classList.add('show');
+  ansDiv.classList.remove('correct-ans', 'wrong-ans');
+  ansDiv.classList.add(allCorrect ? 'correct-ans' : 'wrong-ans');
+  if (!allCorrect) {
+    addToWrong({ id: `fb_${gi}_${qi}`, type: 'fill', question: `[${group.title}] ${item.text.replace(/_{4,}/g, '____')}`, tag: group.tag, explanation: `答案：${item.blanks.join('、')}` });
+    const btn = document.getElementById(`fb_add_${gi}_${qi}`);
+    if (btn) { btn.textContent = '✓ 已加入'; btn.classList.add('btn-added-wrong'); }
+  }
+}
+
+function showFillAnswer(gi, qi) {
+  const group = QUESTIONS.fillBlank.groups[gi];
+  const item = group.items[qi];
+  item.blanks.forEach((ans, bi) => {
+    const input = document.getElementById(`fb_${gi}_${qi}_b${bi}`);
+    if (input) {
+      input.value = ans;
+      input.classList.add('correct');
+      input.disabled = true;
+    }
+  });
+  const ansDiv = document.getElementById(`fb_ans_${gi}_${qi}`);
+  ansDiv.classList.add('show');
+  ansDiv.classList.add('correct-ans');
+}
+
+function addFillToWrong(gi, qi) {
+  const group = QUESTIONS.fillBlank.groups[gi];
+  const item = group.items[qi];
+  addToWrong({ id: `fb_${gi}_${qi}`, type: 'fill', question: `[${group.title}] ${item.text.replace(/_{4,}/g, '____')}`, tag: group.tag, explanation: `答案：${item.blanks.join('、')}` });
+  const btn = document.getElementById(`fb_add_${gi}_${qi}`);
+  if (btn) { btn.textContent = '✓ 已加入'; btn.classList.add('btn-added-wrong'); }
+}
+
+// ============================================================
+// PRACTICE - Question rendering
+// ============================================================
+function renderChoices(section) {
+  const s = QUESTIONS[section];
+  if (!s) return '';
+  if (section === 'fillBlank') {
+    return s.groups.map((g, gi) => renderFillBlank(g, gi)).join('');
+  }
+  const items = s;
+  if (!items) return '';
+
+  return items.map((q, i) => {
+    const idx = i + 1;
+    if (section === 'shortAnswer' || section === 'programming' || section === 'comprehensive') {
+      return `<div class="q-card">
+        <div class="q-number">${idx}. <span class="tag tag-${q.tag}">${q.tag}</span></div>
+        <div class="q-text">${q.question}</div>
+        <div class="q-actions">
+          <button class="btn-show-answer" onclick="toggleShortAns('${section}_${i}')">显示答案</button>
+          <button class="btn-add-wrong" onclick="addSimpleToWrong('${q.id}','${section}')" id="add_${q.id}">+ 错题本</button>
+        </div>
+        <div class="q-answer correct-ans" id="ans_${section}_${i}">${q.answer}</div>
+      </div>`;
+    }
+    if (section === 'trueFalse') {
+      return `<div class="q-card">
+        <div class="q-number">${idx}. <span class="tag tag-${q.tag}">${q.tag}</span></div>
+        <div class="q-text">${q.question}</div>
+        <div class="q-options">
+          <div class="q-option" data-tf="${i}" data-val="true" onclick="selectTF(${i},true)">✓ 正确</div>
+          <div class="q-option" data-tf="${i}" data-val="false" onclick="selectTF(${i},false)">✗ 错误</div>
+        </div>
+        <div class="q-actions">
+          <button class="btn-check" onclick="checkTF(${i})">检查</button>
+          <button class="btn-add-wrong" onclick="addTFToWrong(${i})" id="add_tf_${i}">+ 错题本</button>
+        </div>
+        <div class="q-answer" id="tf_ans_${i}"><span class="label">解析：</span>${q.explanation}</div>
+      </div>`;
+    }
+    return `<div class="q-card">
+      <div class="q-number">${idx}. <span class="tag tag-${q.tag}">${q.tag}</span></div>
+      <div class="q-text">${q.question}</div>
+      <div class="q-options">
+        ${q.options.map((o, oi) => `<div class="q-option" data-choice="${i}" data-oi="${oi}" onclick="selectChoice(${i},${oi})">${o}</div>`).join('')}
+      </div>
+      <div class="q-actions">
+        <button class="btn-check" onclick="checkChoice(${i})">检查</button>
+        <button class="btn-add-wrong" onclick="addChoiceToWrong(${i})" id="add_c${i}">+ 错题本</button>
+      </div>
+      <div class="q-answer" id="choice_ans_${i}"><span class="label">解析：</span>${q.explanation}</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// PRACTICE - Choice interactions
+// ============================================================
+let selectedChoice = {};
+let selectedTF = {};
+
+function selectChoice(i, oi) {
+  document.querySelectorAll(`[data-choice="${i}"]`).forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`[data-choice="${i}"][data-oi="${oi}"]`);
+  if (el) el.classList.add('selected');
+  selectedChoice[i] = oi;
+}
+
+function checkChoice(i) {
+  const q = QUESTIONS.choice[i];
+  const sel = selectedChoice[i];
+  document.querySelectorAll(`[data-choice="${i}"]`).forEach(el => {
+    const oi = parseInt(el.dataset.oi);
+    el.classList.remove('correct', 'wrong', 'show-correct');
+    if (oi === sel) el.classList.add(oi === q.answer ? 'correct' : 'wrong');
+    if (oi === q.answer && sel !== q.answer) el.classList.add('show-correct');
+  });
+  const ans = document.getElementById('choice_ans_' + i);
+  ans.classList.add('show');
+  if (sel === q.answer) { ans.classList.remove('wrong-ans'); ans.classList.add('correct-ans'); }
+  else {
+    ans.classList.remove('correct-ans'); ans.classList.add('wrong-ans');
+    addToWrong({ id: q.id, type: 'choice', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
+    const btn = document.getElementById('add_c' + i);
+    if (btn) { btn.textContent = '✓ 已加入'; btn.classList.add('btn-added-wrong'); }
+  }
+}
+
+function addChoiceToWrong(i) {
+  const q = QUESTIONS.choice[i];
+  addToWrong({ id: q.id, type: 'choice', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
+  const btn = document.getElementById('add_c' + i);
+  if (btn) { btn.textContent = '✓ 已加入'; btn.classList.add('btn-added-wrong'); }
+}
+
+function selectTF(i, val) {
+  document.querySelectorAll(`[data-tf="${i}"]`).forEach(el => el.classList.remove('selected'));
+  document.querySelector(`[data-tf="${i}"][data-val="${val}"]`).classList.add('selected');
+  selectedTF[i] = val;
+}
+
+function checkTF(i) {
+  const q = QUESTIONS.trueFalse[i];
+  const sel = selectedTF[i] === 'true';
+  document.querySelectorAll(`[data-tf="${i}"]`).forEach(el => {
+    const v = el.dataset.val === 'true';
+    el.classList.remove('correct', 'wrong');
+    if (v === sel) el.classList.add(v === q.answer ? 'correct' : 'wrong');
+    if (v === q.answer && sel !== q.answer) el.classList.add('correct');
+  });
+  const ans = document.getElementById('tf_ans_' + i);
+  ans.classList.add('show');
+  if (sel === q.answer) { ans.classList.remove('wrong-ans'); ans.classList.add('correct-ans'); }
+  else {
+    ans.classList.remove('correct-ans'); ans.classList.add('wrong-ans');
+    addToWrong({ id: q.id, type: 'tf', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
+    const btn = document.getElementById('add_tf_' + i);
+    if (btn) { btn.textContent = '✓ 已加入'; btn.classList.add('btn-added-wrong'); }
+  }
+}
+
+function addTFToWrong(i) {
+  const q = QUESTIONS.trueFalse[i];
+  addToWrong({ id: q.id, type: 'tf', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
+  const btn = document.getElementById('add_tf_' + i);
+  if (btn) { btn.textContent = '✓ 已加入'; btn.classList.add('btn-added-wrong'); }
+}
+
+function addSimpleToWrong(id, section) {
+  const q = QUESTIONS[section].find(x => x.id === id);
+  if (!q) return;
+  addToWrong({ id: q.id, type: 'prog', question: q.question, tag: q.tag, explanation: q.answer });
+  const btn = document.getElementById('add_' + id);
+  if (btn) { btn.textContent = '✓ 已加入'; btn.classList.add('btn-added-wrong'); }
+}
+
+function toggleShortAns(id) {
+  const el = document.getElementById('ans_' + id);
+  el.classList.toggle('show');
+}
+
+// ============================================================
+// PRACTICE - Section switching
+// ============================================================
+const SECTIONS = [
+  { key: 'fillBlank', label: '填空题' },
+  { key: 'choice', label: '选择题' },
+  { key: 'trueFalse', label: '判断题' },
+  { key: 'shortAnswer', label: '简答题' },
+  { key: 'programming', label: '编程题' },
+  { key: 'comprehensive', label: '综合题' }
+];
+
+function renderPracticeNav() {
+  const nav = document.getElementById('practiceNav');
+  nav.innerHTML = SECTIONS.map(s =>
+    `<button class="${s.key === currentSection ? 'active' : ''}" onclick="switchSection('${s.key}')">${s.label}</button>`
+  ).join('');
+}
+renderPracticeNav();
+
+function switchSection(key) {
+  currentSection = key;
+  document.querySelectorAll('#practiceNav button').forEach(b => b.classList.remove('active'));
+  document.querySelector(`#practiceNav button[onclick*="${key}"]`).classList.add('active');
+  document.getElementById('practiceContainer').innerHTML = renderChoices(key);
+  selectedChoice = {};
+  selectedTF = {};
+}
+switchSection('choice');
+
+// ============================================================
+// QUIZ MODE
+// ============================================================
+function setQuizCount(n) {
+  quizCount = n;
+  document.querySelectorAll('#quizSetup button[id^="qc"]').forEach(b => {
+    b.style.background = '#fff';
+    b.style.borderColor = 'var(--border)';
+  });
+  const btn = document.getElementById('qc' + n);
+  if (btn) { btn.style.background = 'var(--primary-light)'; btn.style.borderColor = 'var(--primary)'; }
+}
+
+function startQuiz() {
+  const pool = [];
+  if (document.getElementById('qzFill').checked && QUESTIONS.fillBlank) {
+    QUESTIONS.fillBlank.groups.forEach(g => g.items.forEach(item => {
+      pool.push({ type: 'fill', groupTitle: g.title, tag: g.tag, ...item });
+    }));
+  }
+  if (document.getElementById('qzChoice').checked) {
+    QUESTIONS.choice.forEach(q => pool.push({ type: 'choice', ...q }));
+  }
+  if (document.getElementById('qzTF').checked) {
+    QUESTIONS.trueFalse.forEach(q => pool.push({ type: 'tf', ...q }));
+  }
+  if (document.getElementById('qzProg').checked) {
+    [...QUESTIONS.programming, ...QUESTIONS.comprehensive].forEach(q => pool.push({ type: 'prog', ...q }));
+  }
+
+  if (pool.length === 0) { alert('请至少选择一种题型！'); return; }
+
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  quizQuestions = shuffled.slice(0, Math.min(quizCount, shuffled.length));
+  quizIndex = 0;
+  quizScore = 0;
+  quizAnswered = [];
+  quizTime = 0;
+
+  document.getElementById('quizSetup').style.display = 'none';
+  document.getElementById('quizArea').style.display = 'block';
+  if (quizTimer) clearInterval(quizTimer);
+  quizTimer = setInterval(() => {
+    quizTime++;
+    const d = document.getElementById('quizTimerDisplay');
+    if (d) d.textContent = `⏱ ${Math.floor(quizTime/60)}:${String(quizTime%60).padStart(2,'0')}`;
+  }, 1000);
+  renderQuizQuestion();
+}
+
+function renderQuizQuestion() {
+  const area = document.getElementById('quizArea');
+  if (quizIndex >= quizQuestions.length) { showQuizResult(); return; }
+
+  const q = quizQuestions[quizIndex];
+  const total = quizQuestions.length;
+  const pct = (quizIndex / total * 100);
+
+  let html = `
+    <div class="quiz-header">
+      <span>第 ${quizIndex+1}/${total} 题</span>
+      <div class="quiz-stats">
+        <span id="quizTimerDisplay" style="color:var(--warning)">⏱ 0:00</span>
+        <span style="color:var(--success)">✓ ${quizScore}</span>
+        <span style="color:var(--danger)">✗ ${quizIndex - quizScore}</span>
+      </div>
+    </div>
+    <div class="quiz-progress"><div class="quiz-progress-bar" style="width:${pct}%"></div></div>
+  `;
+
+  if (q.type === 'choice') {
+    html += `<div class="card"><div class="q-card">
+      <div class="q-number">选择题 <span class="tag tag-${q.tag}">${q.tag}</span></div>
+      <div class="q-text">${q.question}</div>
+      <div class="q-options" id="qzOpts">
+        ${q.options.map((o, oi) => `<div class="q-option" data-qz="${oi}" onclick="qzSelectChoice(${oi})">${o}</div>`).join('')}
+      </div>
+      <div style="padding:0 16px 16px"><button class="btn-check" onclick="qzSubmitChoice()">提交</button></div>
+      <div class="q-answer" id="qzResult"></div>
+    </div></div>`;
+  } else if (q.type === 'tf') {
+    html += `<div class="card"><div class="q-card">
+      <div class="q-number">判断题 <span class="tag tag-${q.tag}">${q.tag}</span></div>
+      <div class="q-text">${q.question}</div>
+      <div class="q-options">
+        <div class="q-option" data-qztf="true" onclick="qzSelectTF(true)">✓ 正确</div>
+        <div class="q-option" data-qztf="false" onclick="qzSelectTF(false)">✗ 错误</div>
+      </div>
+      <div style="padding:0 16px 16px"><button class="btn-check" onclick="qzSubmitTF()">提交</button></div>
+      <div class="q-answer" id="qzResult"></div>
+    </div></div>`;
+  } else if (q.type === 'fill') {
+    let fillHtml = '<div class="q-text" style="margin-bottom:8px;">';
+    let idx = 0;
+    const segments = q.text.split(/(_{4,})/g);
+    segments.forEach(seg => {
+      if (/_{4,}/.test(seg) && idx < q.blanks.length) {
+        fillHtml += `<input class="fill-blank" id="qzFill_${idx}" data-answer="${q.blanks[idx]}" style="min-width:50px;">`;
+        idx++;
+      } else { fillHtml += seg; }
+    });
+    html += `<div class="card"><div class="q-card">
+      <div class="q-number">填空题 <span class="tag tag-${q.tag}">${q.tag}</span></div>
+      ${fillHtml}</div>
+      <div style="padding:0 16px 16px"><button class="btn-check" onclick="qzSubmitFill()">提交</button></div>
+      <div class="q-answer" id="qzResult"></div>
+    </div></div>`;
+  } else {
+    html += `<div class="card"><div class="q-card">
+      <div class="q-number">编程/综合题</div>
+      <div class="q-text">${q.question}</div>
+      <div style="margin-bottom:12px"><button class="btn-show-answer" onclick="document.getElementById('qzResult').classList.toggle('show')">显示答案</button></div>
+      <div class="q-answer correct-ans" id="qzResult">${q.answer}</div>
+      <div style="padding:0 0 8px;display:flex;gap:8px;">
+        <button class="btn-correct" onclick="qzNext(true)">✓ 答对了</button>
+        <button class="btn-wrong" onclick="qzNext(false)">✗ 答错了</button>
+      </div>
+    </div></div>`;
+  }
+
+  area.innerHTML = html;
+}
+
+let qzChoiceSelected = null;
+let qzTFSelected = null;
+
+function qzSelectChoice(oi) {
+  document.querySelectorAll('[data-qz]').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`[data-qz="${oi}"]`);
+  if (el) el.classList.add('selected');
+  qzChoiceSelected = oi;
+}
+
+function qzSubmitChoice() {
+  const q = quizQuestions[quizIndex];
+  if (qzChoiceSelected === null) { alert('请先选择一个选项！'); return; }
+  const correct = qzChoiceSelected === q.answer;
+  document.querySelectorAll('[data-qz]').forEach(el => {
+    const oi = parseInt(el.dataset.qz);
+    el.classList.remove('correct', 'wrong');
+    if (oi === qzChoiceSelected) el.classList.add(correct ? 'correct' : 'wrong');
+    if (oi === q.answer && !correct) el.classList.add('correct');
+    el.style.pointerEvents = 'none';
+  });
+  const ans = document.getElementById('qzResult');
+  ans.classList.add('show');
+  ans.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+  ans.innerHTML = `<span class="label">${correct ? '✅ 正确！' : '❌ 错误'}</span><br>${q.explanation}`;
+  if (!correct && q.id) addToWrong({ id: q.id, type: 'choice', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
+  setTimeout(() => qzNext(correct), 1500);
+}
+
+function qzSelectTF(val) {
+  document.querySelectorAll('[data-qztf]').forEach(el => el.classList.remove('selected'));
+  document.querySelector(`[data-qztf="${val}"]`).classList.add('selected');
+  qzTFSelected = val === 'true';
+}
+
+function qzSubmitTF() {
+  const q = quizQuestions[quizIndex];
+  if (qzTFSelected === null) { alert('请先选择！'); return; }
+  const correct = qzTFSelected === q.answer;
+  document.querySelectorAll('[data-qztf]').forEach(el => {
+    const v = el.dataset.qztf === 'true';
+    el.classList.remove('correct', 'wrong');
+    if (v === qzTFSelected) el.classList.add(correct ? 'correct' : 'wrong');
+    if (v === q.answer && !correct) el.classList.add('correct');
+    el.style.pointerEvents = 'none';
+  });
+  const ans = document.getElementById('qzResult');
+  ans.classList.add('show');
+  ans.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+  ans.innerHTML = `<span class="label">${correct ? '✅ 正确！' : '❌ 错误'}</span><br>${q.explanation}`;
+  if (!correct && q.id) addToWrong({ id: q.id, type: 'tf', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
+  setTimeout(() => qzNext(correct), 1500);
+}
+
+function qzSubmitFill() {
+  const q = quizQuestions[quizIndex];
+  let allCorrect = true;
+  q.blanks.forEach((ans, bi) => {
+    const input = document.getElementById(`qzFill_${bi}`);
+    if (!input) return;
+    input.classList.remove('correct', 'wrong');
+    if (input.value.trim() === ans) input.classList.add('correct');
+    else { input.classList.add('wrong'); allCorrect = false; }
+  });
+  const ans = document.getElementById('qzResult');
+  ans.classList.add('show');
+  ans.classList.add(allCorrect ? 'correct-ans' : 'wrong-ans');
+  ans.innerHTML = `<span class="label">${allCorrect ? '✅ 全对！' : '❌ 有误'}</span><br>答案：${q.blanks.join('、')}`;
+  q.blanks.forEach((_, bi) => { const inp = document.getElementById(`qzFill_${bi}`); if (inp) inp.disabled = true; });
+  if (!allCorrect) addToWrong({ id: `qz_fill_${quizIndex}`, type: 'fill', question: q.text.replace(/_{4,}/g, '____'), tag: q.tag, explanation: `答案：${q.blanks.join('、')}` });
+  setTimeout(() => qzNext(allCorrect), 1500);
+}
+
+function qzNext(correct) {
+  if (correct) quizScore++;
+  quizIndex++;
+  quizAnswered.push(correct);
+  renderQuizQuestion();
+}
+
+function showQuizResult() {
+  const total = quizQuestions.length;
+  const pct = Math.round(quizScore / total * 100);
+  if (quizTimer) { clearInterval(quizTimer); quizTimer = null; }
+  const timeStr = `${Math.floor(quizTime/60)}分${quizTime%60}秒`;
+  let stars = pct >= 90 ? '⭐⭐⭐ 优秀！' : pct >= 70 ? '⭐⭐ 不错！' : pct >= 50 ? '⭐ 继续加油！' : '💪 需要多复习哦！';
+  document.getElementById('quizArea').innerHTML = `
+    <div class="card quiz-result">
+      <div class="score">${pct}%</div>
+      <div class="detail">${quizScore}/${total} 题正确 · 用时 ${timeStr}</div>
+      <div class="stars">${stars}</div>
+      <div style="margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <button class="generate-btn" onclick="resetQuiz()">再来一次</button>
+        <button class="btn-show-answer" onclick="document.getElementById('quizDetail').classList.toggle('show')" style="padding:12px 24px;border-radius:var(--radius);font-weight:600;cursor:pointer;">查看详情</button>
+      </div>
+      <div id="quizDetail" style="display:none;margin-top:16px;font-size:13px;text-align:left;">
+        ${quizQuestions.map((q, i) => `<div style="padding:6px 0;border-bottom:1px solid var(--border);">
+          ${i+1}. ${quizAnswered[i] ? '✅' : '❌'} ${(q.question||q.text||'').substring(0, 40)}...
+        </div>`).join('')}
+        <div style="padding:6px 0;color:var(--text-light);font-size:12px;">答错的题已自动加入错题本</div>
+      </div>
+    </div>
+  `;
+}
+
+function resetQuiz() {
+  if (quizTimer) { clearInterval(quizTimer); quizTimer = null; }
+  document.getElementById('quizSetup').style.display = 'block';
+  document.getElementById('quizArea').style.display = 'none';
+  qzChoiceSelected = null;
+  qzTFSelected = null;
+}
+
+// ============================================================
+// NEW QUESTIONS
+// ============================================================
+function selectGenType(type) {
+  genType = type;
+  document.querySelectorAll('#tabNewq .section-select-btn').forEach(b => {
+    b.style.background = '#fff'; b.style.borderColor = 'var(--border)';
+  });
+  const btn = document.getElementById('gt-' + type);
+  if (btn) { btn.style.background = 'var(--primary-light)'; btn.style.borderColor = 'var(--primary)'; }
+}
+
+function generateNewQuestions() {
+  const container = document.getElementById('newQuestionsContainer');
+  let pool = [];
+  if (genType === 'random' || genType === 'choice') pool.push(...GENERATED_POOL.choice.map(q => ({ ...q, type: 'choice' })));
+  if (genType === 'random' || genType === 'fill') pool.push(...GENERATED_POOL.fill.map(q => ({ ...q, type: 'fill' })));
+  if (genType === 'random' || genType === 'tf') pool.push(...GENERATED_POOL.tf.map(q => ({ ...q, type: 'tf' })));
+  if (genType === 'random' || genType === 'prog') pool.push(...GENERATED_POOL.prog.map(q => ({ ...q, type: 'prog' })));
+  if (pool.length < 5 && (genType === 'random' || genType === 'choice')) {
+    QUESTIONS.choice.forEach(q => pool.push({ ...q, type: 'choice' }));
+  }
+  pool.sort(() => Math.random() - 0.5);
+  const selected = pool.slice(0, 10);
+  if (selected.length === 0) { container.innerHTML = '<div class="card" style="padding:20px;text-align:center;">请选择题型后生成。</div>'; return; }
+
+  let html = `<div style="margin-top:16px;"><h3 style="margin-bottom:12px;">🔨 生成的新题（${selected.length}题）</h3></div>`;
+  selected.forEach((q, i) => {
+    html += `<div class="card"><div class="q-card">`;
+    if (q.type === 'choice') {
+      html += `<div class="q-number">${i+1}. 选择题 <span class="tag tag-${q.tag}">${q.tag}</span></div>
+        <div class="q-text">${q.question}</div>
+        <div class="q-options">${q.options.map((o, oi) => `<div class="q-option" onclick="this.classList.toggle('selected')">${o}</div>`).join('')}</div>
+        <div class="q-actions">
+          <button class="btn-check" onclick="this.nextElementSibling.classList.toggle('show');this.style.display='none'">查看答案</button>
+          <div class="q-answer correct-ans" style="display:none"><span class="label">答案：</span>${String.fromCharCode(65+q.answer)}. ${q.explanation}</div>
+        </div>`;
+    } else if (q.type === 'fill') {
+      let t = q.text;
+      q.blanks.forEach((a, bi) => { t = t.replace(/_{4,}/, `<input class="fill-blank" id="ngf_${i}_${bi}" data-answer="${a}" onkeydown="if(event.key==='Enter'){const el=document.getElementById('ngf_${i}_${bi}');el.classList.remove('correct','wrong');el.classList.add(el.value.trim()==='${a}'?'correct':'wrong')}">`); });
+      html += `<div class="q-number">${i+1}. 填空题 <span class="tag tag-${q.tag}">${q.tag}</span></div>
+        <div class="q-text">${t}</div>
+        <div class="q-actions"><button class="btn-show-answer" onclick="document.getElementById('ngf_ans_${i}').classList.toggle('show')">显示答案</button>
+        <div class="q-answer correct-ans" id="ngf_ans_${i}">答案：${q.blanks.join('、')}</div></div>`;
+    } else if (q.type === 'tf') {
+      html += `<div class="q-number">${i+1}. 判断题 <span class="tag tag-${q.tag}">${q.tag}</span></div>
+        <div class="q-text">${q.question}</div>
+        <div class="q-options"><div class="q-option" onclick="this.classList.toggle('selected')">✓ 正确</div><div class="q-option" onclick="this.classList.toggle('selected')">✗ 错误</div></div>
+        <div class="q-actions"><button class="btn-check" onclick="this.nextElementSibling.classList.toggle('show')">查看答案</button>
+        <div class="q-answer correct-ans" style="display:none"><span class="label">答案：</span>${q.answer?'正确 ✓':'错误 ✗'}<br>${q.explanation}</div></div>`;
+    } else {
+      html += `<div class="q-number">${i+1}. 编程题</div>
+        <div class="q-text">${q.question}</div>
+        <div class="q-actions"><button class="btn-show-answer" onclick="document.getElementById('ngp_ans_${i}').classList.toggle('show')">显示答案</button>
+        <div class="q-answer correct-ans" id="ngp_ans_${i}">${q.answer}</div></div>`;
+    }
+    html += `</div></div>`;
+  });
+  container.innerHTML = html;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadWrongQuestions();
+setQuizCount(10);
+</script>
+</body>
+</html>
