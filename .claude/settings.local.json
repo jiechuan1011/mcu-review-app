@@ -58,7 +58,11 @@
       "Bash(mkdir -p /tmp/fresh-apk/www)",
       "Bash(cp \"D:/微机复习app/微机原理复习宝典.html\" /tmp/fresh-apk/www/index.html)",
       "Bash(cmd.exe //c \"set JAVA_HOME=C:\\\\Program Files\\\\Amazon Corretto\\\\jdk17.0.19_10 && set ANDROID_HOME=%USERPROFILE%\\\\AppData\\\\Local\\\\Android\\\\Sdk && gradlew.bat assembleDebug --no-daemon\")",
-      "Bash(cmd.exe /c \"gradlew.bat assembleDebug --no-daemon\")"
+      "Bash(cmd.exe /c \"gradlew.bat assembleDebug --no-daemon\")",
+      "Bash(cp -r \"C:/Users/97807/AppData/Local/Temp/fresh-apk/.github\" \"D:/微机复习app/\")",
+      "Bash(cp -r \"C:/Users/97807/AppData/Local/Temp/fresh-apk/android\" \"D:/微机复习app/\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

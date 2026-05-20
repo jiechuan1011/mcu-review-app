@@ -1,0 +1,11 @@
+{
+  "name": "微机原理复习宝典",
+  "short_name": "微机复习",
+  "description": "8088/8259A/8253/8255 考试复习",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f7fa",
+  "theme_color": "#4a6cf7",
+  "orientation": "portrait",
+  "icons": [{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%234a6cf7'/%3E%3Ctext x='96' y='130' font-size='100' text-anchor='middle' fill='white'%3E🔌%3C/text%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]
+}

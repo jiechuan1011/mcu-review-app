@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">微机原理复习宝典</string>
+    <string name="title_activity_main">微机原理复习宝典</string>
+    <string name="package_name">com.mcureview.app</string>
+    <string name="custom_url_scheme">com.mcureview.app</string>
+</resources>
