@@ -31,8 +31,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Sync web assets
-        run: npx cap copy
+      - name: Sync web assets & Android plugins
+        run: npx cap sync
 
       - name: Build debug APK
         run: |
