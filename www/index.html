@@ -964,7 +964,13 @@ function checkForUpdate() {
       if (!data.tag_name) return;
       const latestVer = data.tag_name.replace(/^v/i, '');
       if (compareVersions(latestVer, APP_VERSION) > 0 && latestVer !== ignoredVersion) {
-        showUpdateBanner(latestVer, data.html_url, data.body || '');
+        // Find APK asset URL
+        let apkUrl = '';
+        if (data.assets && data.assets.length > 0) {
+          const apk = data.assets.find(a => a.name && a.name.endsWith('.apk'));
+          if (apk) apkUrl = apk.browser_download_url;
+        }
+        showUpdateBanner(latestVer, data.html_url, apkUrl, data.body || '');
       }
     })
     .catch(() => {}); // silently fail if offline
@@ -981,20 +987,39 @@ function compareVersions(a, b) {
   return 0;
 }
 
-function showUpdateBanner(version, url, body) {
+function showUpdateBanner(version, htmlUrl, apkUrl) {
   const existing = document.getElementById('updateBanner');
   if (existing) existing.remove();
   const banner = document.createElement('div');
   banner.id = 'updateBanner';
-  banner.style.cssText = 'background:linear-gradient(135deg,var(--primary),#6366f1);color:#fff;padding:12px 20px;text-align:center;font-size:13px;position:sticky;top:110px;z-index:98;';
+  banner.style.cssText = 'background:linear-gradient(135deg,var(--primary),#6366f1);color:#fff;padding:12px 20px;text-align:center;font-size:13px;position:sticky;top:144px;z-index:98;box-shadow:0 2px 8px rgba(0,0,0,0.1);';
+  const downloadBtn = apkUrl
+    ? `<button onclick="downloadAPK('${apkUrl}','v${version}')" style="padding:5px 14px;border:none;border-radius:6px;background:#fff;color:var(--primary);font-weight:700;cursor:pointer;font-size:12px;">📥 下载安装</button>`
+    : `<button onclick="window.open('${htmlUrl}','_system')" style="padding:5px 14px;border:none;border-radius:6px;background:#fff;color:var(--primary);font-weight:700;cursor:pointer;font-size:12px;">GitHub 下载</button>`;
   banner.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
       <span>📥 新版本 <strong>v${version}</strong> 可用</span>
-      <button onclick="window.open('${url}','_system')" style="padding:5px 14px;border:none;border-radius:6px;background:#fff;color:var(--primary);font-weight:700;cursor:pointer;font-size:12px;">GitHub 下载</button>
+      ${downloadBtn}
       <button onclick="this.closest('#updateBanner').remove();localStorage.setItem('mc_ignored_version','${version}')" style="padding:5px 14px;border:1px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:12px;">忽略本次</button>
     </div>`;
   const nav = document.getElementById('mainNav');
   nav.parentNode.insertBefore(banner, nav.nextSibling);
+}
+
+function downloadAPK(url, version) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mcu-review-app-' + version + '.apk';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Show install hint
+  const hint = document.createElement('div');
+  hint.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 24px;border-radius:12px;font-size:14px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,0.3);animation:fadeIn .3s ease;';
+  hint.textContent = 'APK 已开始下载，下载完成后打开即可安装';
+  document.body.appendChild(hint);
+  setTimeout(() => hint.remove(), 5000);
 }
 
 // ============================================================
