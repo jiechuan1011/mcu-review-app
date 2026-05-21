@@ -2520,30 +2520,47 @@ async function newqGradeProg(nid) {
   if (!d) return;
   const input = document.getElementById(`${nid}_input`);
   if (!input || !input.value.trim()) { alert('请先输入你的答案！'); return; }
+  if (!deepseekApiKey) { alert('请先在设置中配置 DeepSeek API 密钥'); return; }
 
-  // For prog questions, we still need AI to judge (text comparison is unreliable)
-  const prompt = `题目（微机原理编程/简答题）：${d.question}\n学生答案：${input.value.trim()}\n请判断对错，给出正确答案（30字以内）。`;
-
+  const userAns = input.value.trim();
   const result = document.getElementById(`${nid}_result`);
-  result.innerHTML = '<span style="color:var(--text-light);">批改中...</span>';
+  result.innerHTML = '<span style="color:var(--text-light);">AI 批改中...</span>';
   result.classList.add('show');
-
-  const data = await callDeepSeek(prompt);
-  if (!data) { result.innerHTML = ''; result.classList.remove('show'); return; }
-
-  const correct = data.correct;
-  const explanation = data.explanation || '';
-  const correctAns = data.answer || '';
-
   result.classList.remove('correct-ans', 'wrong-ans');
+
+  const resp = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: '你是微机原理助教，批改汇编编程题。\n输出JSON：{"correct":true/false,"marked":"学生答案逐行复制+;注释，错误指令用<red></red>标记","correctCode":"标准答案每行<br>分隔"}' },
+        { role: 'user', content: `题目：${d.question}\n标准答案：\n${d.answer || ''}\n学生答案：\n${userAns}\n\n逐行对比，指令顺序不同但等效也算对。` }
+      ],
+      temperature: 0.1,
+      max_tokens: 500
+    })
+  });
+  const data = await resp.json();
+  if (data.error) { result.innerHTML = 'API 错误'; return; }
+  const content = data.choices?.[0]?.message?.content || '';
+  let correct = false, marked = '', correctCode = '';
+  try {
+    const j = JSON.parse(content.replace(/```json/g,'').replace(/```/g,'').trim());
+    correct = j.correct;
+    marked = j.marked || '';
+    correctCode = j.correctCode || '';
+  } catch(e) { correct = false; marked = '批改失败'; }
+
   result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
-  const brief = correctAns.substring(0, 30);
+  const displayMarked = marked.replace(/<red>/g,'<span style="color:red;font-weight:700">').replace(/<\/red>/g,'</span>');
   result.innerHTML = correct
     ? `✅ 正确`
-    : `❌ 错误${brief ? '，参考答案：' + brief : ''}`;
+    : `<div style="font-family:monospace;font-size:13px;line-height:1.8;white-space:pre-wrap;">${displayMarked}</div>
+       <div style="margin-top:6px;font-size:12px;color:var(--success);font-family:monospace;white-space:pre-wrap;">标准答案：\n${correctCode}</div>`;
 
   if (!correct) {
-    addToWrong({ id: nid, type: 'prog', question: d.question, tag: d.tag, explanation: `参考答案：${correctAns}。${explanation}` });
+    addToWrong({ id: nid, type: 'prog', question: d.question, tag: d.tag, explanation: correctCode || d.answer || '', userAnswer: userAns, marked, correctCode });
   }
   recordAnswer(nid, correct);
 }
@@ -2559,7 +2576,7 @@ function makeExplainPrompt(d) {
     const ans = d.blanks ? d.blanks.join('、') : '';
     return { prompt: `题目：${d.question}\n正确答案：${ans}\n请详细讲解这道填空题的知识点。`, system: '你是微机原理助教，请详细讲解以下题目。200字以内。不要回复JSON，直接输出讲解内容。' };
   } else {
-    return { prompt: `题目：${d.question}\n参考答案：${d.answer || d.explanation || ''}\n请详细讲解这道题的知识点和解题思路。`, system: '你是微机原理助教，请详细讲解以下题目。200字以内。不要回复JSON，直接输出讲解内容。' };
+    return { prompt: `题目：${d.question}\n参考答案：${d.answer || d.explanation || ''}\n请逐条讲解每条指令的作用，用;注释风格写在指令后面。`, system: '你是微机原理助教。用汇编注释风格讲解编程题答案。输出格式：每条指令 + ;注释说明该指令作用。不要用汉字段落，用;注释。' };
   }
 }
 
