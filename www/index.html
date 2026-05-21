@@ -1123,10 +1123,17 @@ function renderWrongQuestions() {
         ${cc > 0 ? `<span class="w-tag" style="background:#f0fdf4;color:#16a34a;">重练正确${cc}次</span>` : ''}
       </div>
       <div class="q-text" style="font-size:14px;margin-bottom:4px;">${qText.substring(0, 120)}${qText.length > 120 ? '...' : ''}</div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap;">
         <button class="btn-show-answer" onclick="var el=document.getElementById('wa_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}');el.classList.toggle('show');this.textContent=el.classList.contains('show')?'隐藏答案':'显示答案'" style="font-size:12px;padding:4px 12px;">显示答案</button>
+        ${q.marked ? `<button class="btn-retry-wrong" onclick="var el=document.getElementById('wc_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}');el.style.display=el.style.display==='block'?'none':'block'" style="font-size:12px;padding:4px 12px;">🔍 查看改错</button>` : ''}
       </div>
       ${q.explanation ? `<div class="q-answer correct-ans" id="wa_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}" style="font-size:12px;margin-top:4px;">${q.explanation}</div>` : ''}
+      ${q.marked ? `<div id="wc_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}" style="display:none;margin-top:8px;padding:10px;background:#f8fafc;border-radius:8px;font-family:monospace;font-size:13px;line-height:1.8;">
+        <div style="font-weight:600;margin-bottom:6px;font-size:12px;font-family:sans-serif;">📝 你的回答：</div>
+        <div style="white-space:pre-wrap;">${q.marked.replace(/<red>/g,'<span style="color:red;font-weight:700">').replace(/<\/red>/g,'</span>')}</div>
+        ${q.correctCode ? `<div style="font-weight:600;margin:10px 0 6px;font-size:12px;font-family:sans-serif;">✅ 标准答案：</div>
+        <div style="white-space:pre-wrap;color:var(--success);">${q.correctCode}</div>` : ''}
+      </div>` : ''}
       <div class="w-actions">
         <button class="btn-forget" onclick="forgetWrong('${q.id.replace(/'/g,"\\'")}')">✅ 已掌握</button>
         <button class="btn-forget" onclick="removeFromWrong('${q.id.replace(/'/g,"\\'")}')" style="background:var(--text-light);">🗑️ 移除</button>
@@ -2105,28 +2112,33 @@ function qzSubmitProg() {
     body: JSON.stringify({
       model: 'deepseek-chat',
       messages: [
-        { role: 'system', content: '你是微机原理助教。批改学生的汇编编程题。输出JSON：{"correct":true/false,"comment":"出错分析，30字内"}' },
-        { role: 'user', content: `题目：${q.question}\n标准答案：\n${q.answer || ''}\n学生答案：\n${userAnswer}\n\n逐条对比，如果学生答案与标准答案等效（指令顺序不同但结果相同也算对）则correct=true。否则correct=false，comment用汇编注释;指出第一条错误。` }
+        { role: 'system', content: '你是微机原理助教，批改汇编编程题。\n输出JSON格式：\n{\n  "correct": true/false,\n  "marked": "学生答案的逐行复制+;注释，错误指令用<red></red>标记",\n  "correctCode": "完整标准答案每行<br>分隔"\n}\n要求：\n1. marked 字段逐行复制学生答案，每行后加;注释\n2. 错误的指令用<red>错误指令</red>标记\n3. ;注释写为什么错\n4. correctCode 写标准答案' },
+        { role: 'user', content: `题目：${q.question}\n标准答案：\n${q.answer || ''}\n学生答案：\n${userAnswer}\n\n逐行对比学生答案和标准答案。指令顺序不同但等效也算对。` }
       ],
       temperature: 0.1,
-      max_tokens: 300
+      max_tokens: 500
     })
   })
   .then(r => r.json())
   .then(data => {
     if (data.error) { result.innerHTML = 'API 错误'; return; }
     const content = data.choices?.[0]?.message?.content || '';
-    let correct = false, comment = '';
+    let correct = false, marked = '', correctCode = '';
     try {
       const j = JSON.parse(content.replace(/```json/g,'').replace(/```/g,'').trim());
       correct = j.correct;
-      comment = j.comment || '';
-    } catch(e) { correct = false; comment = '批改失败'; }
+      marked = j.marked || '';
+      correctCode = j.correctCode || '';
+    } catch(e) { correct = false; marked = '批改解析失败'; }
     result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
-    quizAnalysis[quizIndex] = { correct, comment, userAnswer };
+
+    const displayMarked = marked.replace(/<red>/g, '<span style="color:red;font-weight:700">').replace(/<\/red>/g, '</span>');
+
+    quizAnalysis[quizIndex] = { correct, marked, correctCode, userAnswer };
     result.innerHTML = correct
       ? `✅ 正确`
-      : `❌ ${comment}`;
+      : `<div style="font-family:monospace;font-size:13px;line-height:1.8;white-space:pre-wrap;">${displayMarked}</div>
+         <div style="margin-top:8px;font-size:12px;color:var(--success);font-family:monospace;white-space:pre-wrap;">标准答案：\n${correctCode}</div>`;
     qzNext(correct);
   })
   .catch(() => { result.innerHTML = '网络错误'; });
@@ -2139,7 +2151,8 @@ function qzNext(correct) {
     recordAnswer(qid, correct);
     if (!correct) {
       if (q.type === 'prog') {
-        addToWrong({ id: qid, type: 'prog', question: q.question, tag: q.tag, answer: q.answer, explanation: q.explanation || '' });
+        const a = quizAnalysis[quizIndex] || {};
+        addToWrong({ id: qid, type: 'prog', question: q.question, tag: q.tag, answer: q.answer, explanation: q.explanation || '', userAnswer: a.userAnswer || '', marked: a.marked || '', correctCode: a.correctCode || '' });
       } else if (q.type === 'fill') {
         addToWrong({ id: qid, type: 'fill', question: (q.question || q.text || '').replace(/_{4,}/g, '____'), tag: q.tag, explanation: `答案：${q.blanks?.join('、') || ''}` });
       } else {
@@ -2178,9 +2191,11 @@ function showQuizResult() {
           const a = quizAnalysis?.[i];
           let extra = '';
           if (q.type === 'prog') {
-            if (a) extra += `<div style="font-family:monospace;font-size:12px;color:var(--text-secondary);margin:4px 0 2px;white-space:pre-wrap;">你的答案：${a.userAnswer || ''}</div>`;
-            if (a && !a.correct) extra += `<div style="font-family:monospace;font-size:12px;color:var(--danger);margin:2px 0;">; ${a.comment}</div>`;
-            extra += `<div style="font-family:monospace;font-size:12px;color:var(--success);margin:2px 0;white-space:pre-wrap;">标准答案：\n${q.answer || ''}</div>`;
+            if (a && a.marked) {
+              const markedHtml = a.marked.replace(/<red>/g,'<span style="color:red;font-weight:700">').replace(/<\/red>/g,'</span>');
+              extra += `<div style="font-family:monospace;font-size:12px;margin:4px 0;white-space:pre-wrap;">${markedHtml}</div>`;
+            }
+            extra += `<div style="font-family:monospace;font-size:12px;color:var(--success);margin:2px 0;white-space:pre-wrap;">✅ 标准答案：\n${a?.correctCode || q.answer || ''}</div>`;
           } else {
             extra += `<div style="margin:4px 0 2px;color:var(--text-light);">${q.explanation || (q.type==='fill' ? '答案：'+(q.blanks?.join('、')||'') : '')}</div>`;
           }
