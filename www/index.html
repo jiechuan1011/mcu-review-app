@@ -1990,14 +1990,15 @@ function renderQuizQuestion() {
     </div></div>`;
   } else {
     html += `<div class="card"><div class="q-card">
-      <div class="q-number">编程/综合题</div>
+      <div class="q-number">编程/综合题 <span class="tag tag-${q.tag||'asm'}">${q.tag||'asm'}</span></div>
       <div class="q-text">${q.question}</div>
-      <div style="margin-bottom:12px"><button class="btn-show-answer" onclick="document.getElementById('qzResult').classList.toggle('show')">显示答案</button></div>
-      <div class="q-answer correct-ans" id="qzResult">${q.answer}</div>
-      <div style="padding:0 0 8px;display:flex;gap:8px;">
-        <button class="btn-correct" onclick="qzNext(true)">✓ 答对了</button>
-        <button class="btn-wrong" onclick="qzNext(false)">✗ 答错了</button>
+      <textarea id="qzProgInput" placeholder="在此输入你的答案..." style="width:100%;min-height:80px;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:8px;resize:vertical;"></textarea>
+      <div style="padding:0 16px 12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-check" onclick="qzSubmitProg()">📝 提交批改</button>
+        <button class="btn-show-answer" onclick="document.getElementById('qzProgAns').classList.toggle('show')">显示答案</button>
       </div>
+      <div class="q-answer correct-ans" id="qzProgAns">${q.answer}</div>
+      <div class="q-answer" id="qzResult"></div>
     </div></div>`;
   }
 
@@ -2072,6 +2073,51 @@ function qzSubmitFill() {
   ans.innerHTML = `<span class="label">${allCorrect ? '✅ 全对！' : '❌ 有误'}</span><br>答案：${q.blanks.join('、')}`;
   q.blanks.forEach((_, bi) => { const inp = document.getElementById(`qzFill_${bi}`); if (inp) inp.disabled = true; });
   setTimeout(() => qzNext(allCorrect), 1500);
+}
+
+function qzSubmitProg() {
+  const q = quizQuestions[quizIndex];
+  if (!q) return;
+  const input = document.getElementById('qzProgInput');
+  if (!input || !input.value.trim()) { alert('请输入你的答案！'); return; }
+  if (!deepseekApiKey) { alert('请先在设置中配置 DeepSeek API 密钥才能使用 AI 批改'); return; }
+
+  const result = document.getElementById('qzResult');
+  result.innerHTML = '<span style="color:var(--text-light);">AI 批改中...</span>';
+  result.classList.add('show');
+  result.classList.remove('correct-ans', 'wrong-ans');
+
+  fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: '你是一位微机原理助教，批改学生的编程/简答题答案。请判断对错，给出正确答案（简短）。回答格式：{"correct": true/false, "answer": "正确答案"}' },
+        { role: 'user', content: `题目：${q.question}\n参考/标准答案：${q.answer || ''}\n学生答案：${input.value.trim()}\n请批改。` }
+      ],
+      temperature: 0.1,
+      max_tokens: 256
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { result.innerHTML = 'API 错误'; return; }
+    const content = data.choices?.[0]?.message?.content || '';
+    let correct = false, answer = '';
+    try {
+      const j = JSON.parse(content.replace(/```json/g,'').replace(/```/g,'').trim());
+      correct = j.correct;
+      answer = j.answer || '';
+    } catch(e) { correct = false; answer = ''; }
+    result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+    const brief = answer ? answer.substring(0, 30) : '';
+    result.innerHTML = correct
+      ? '✅ 正确'
+      : `❌ 错误${brief ? '，参考答案：' + brief : ''}`;
+    qzNext(correct);
+  })
+  .catch(() => { result.innerHTML = '网络错误'; });
 }
 
 function qzNext(correct) {
