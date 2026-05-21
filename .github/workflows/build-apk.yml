@@ -15,6 +15,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -65,47 +67,41 @@ jobs:
       - name: Generate Release Notes
         id: notes
         run: |
-          TAG="${{ steps.version.outputs.TAG_NAME }}"
+          VER="${{ steps.version.outputs.APP_VERSION }}"
           PREV_TAG=$(git tag --sort=-creatordate | head -2 | tail -1 || echo "")
-          NOTES="📱 **微机原理复习宝典 v${{ steps.version.outputs.APP_VERSION }}**"
-          if [ "${{ steps.version.outputs.APP_VERSION }}" = "1.0.2" ]; then
-            NOTES="$NOTES"$'\n\n'"本次更新："
-          else
-            NOTES="$NOTES"$'\n'
-          fi
-          if [ -n "$PREV_TAG" ]; then
-            NOTES="$NOTES"$'\n'"---"
-            # Group commits by type
-            FEATS=$(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep -c "^[0-9a-f]* feat" || true)
-            FIXES=$(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep -c "^[0-9a-f]* fix" || true)
-            CHORES=$(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep -c "^[0-9a-f]* chore\|^[0-9a-f]* docs" || true)
 
-            if [ "$FEATS" -gt 0 ]; then
-              NOTES="$NOTES"$'\n'"### 🚀 新功能"
-              while IFS= read -r line; do
-                MSG=$(echo "$line" | sed 's/^[0-9a-f]* feat: //')
-                NOTES="$NOTES"$'\n'"- $MSG"
-              done < <(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep "^[0-9a-f]* feat")
+          cat > release_notes.md <<- NOTEEND
+          📱 **微机原理复习宝典 v${VER}**
+          NOTEEND
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "---" >> release_notes.md
+
+            # Group by type
+            git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | sed 's/^[0-9a-f]* //' > /tmp/all_commits
+
+            [ -s /tmp/all_commits ] || { echo "首次发布 🎉" > release_notes.md; echo "NOTES_FILE=release_notes.md" >> $GITHUB_OUTPUT; exit 0; }
+
+            grep "^feat:" /tmp/all_commits | sed 's/^feat: //' > /tmp/feats || true
+            grep "^fix:" /tmp/all_commits | sed 's/^fix: //' > /tmp/fixes || true
+            grep -E "^(chore|docs):" /tmp/all_commits | sed 's/^[a-z]*: //' > /tmp/others || true
+
+            if [ -s /tmp/feats ]; then
+              echo "### 🚀 新功能" >> release_notes.md
+              sed 's/^/- /' /tmp/feats >> release_notes.md
             fi
-            if [ "$FIXES" -gt 0 ]; then
-              NOTES="$NOTES"$'\n'"### 🐛 修复"
-              while IFS= read -r line; do
-                MSG=$(echo "$line" | sed 's/^[0-9a-f]* fix: //')
-                NOTES="$NOTES"$'\n'"- $MSG"
-              done < <(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep "^[0-9a-f]* fix")
+            if [ -s /tmp/fixes ]; then
+              echo "### 🐛 修复" >> release_notes.md
+              sed 's/^/- /' /tmp/fixes >> release_notes.md
             fi
-            if [ "$CHORES" -gt 0 ]; then
-              NOTES="$NOTES"$'\n'"### 📝 其他"
-              while IFS= read -r line; do
-                MSG=$(echo "$line" | sed 's/^[0-9a-f]*.*: //')
-                NOTES="$NOTES"$'\n'"- $MSG"
-              done < <(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep "^[0-9a-f]* chore\|^[0-9a-f]* docs")
+            if [ -s /tmp/others ]; then
+              echo "### 📝 其他" >> release_notes.md
+              sed 's/^/- /' /tmp/others >> release_notes.md
             fi
           else
-            NOTES="$NOTES"$'\n'"首次发布 🎉"
+            echo "首次发布 🎉" >> release_notes.md
           fi
-          # Write notes to file to avoid shell escaping issues
-          echo "$NOTES" > release_notes.md
+
           echo "NOTES_FILE=release_notes.md" >> $GITHUB_OUTPUT
 
       - name: Create Release
