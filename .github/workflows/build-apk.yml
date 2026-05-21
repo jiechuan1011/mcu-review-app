@@ -109,6 +109,7 @@ jobs:
           TAG="${{ steps.version.outputs.TAG_NAME }}"
           gh release delete "$TAG" --yes 2>/dev/null || true
           git push origin --delete "$TAG" 2>/dev/null || true
+          git tag -d "$TAG" 2>/dev/null || true
           gh release create "$TAG" \
             --title "v${{ steps.version.outputs.APP_VERSION }}" \
             --notes-file "${{ steps.notes.outputs.NOTES_FILE }}" \
