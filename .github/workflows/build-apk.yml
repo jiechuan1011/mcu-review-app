@@ -34,44 +34,89 @@ jobs:
           echo "APP_VERSION=$VER" >> $GITHUB_OUTPUT
           echo "TAG_NAME=v$VER" >> $GITHUB_OUTPUT
 
+      - name: Auto-update versionCode
+        run: |
+          VER="${{ steps.version.outputs.APP_VERSION }}"
+          # Convert 1.0.2 → 10002, 1.0.3 → 10003, etc.
+          MAJOR=$(echo "$VER" | cut -d. -f1)
+          MINOR=$(echo "$VER" | cut -d. -f2)
+          PATCH=$(echo "$VER" | cut -d. -f3)
+          VCODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
+          echo "versionCode=$VCODE"
+          sed -i "s/versionCode [0-9]*/versionCode $VCODE/" android/app/build.gradle
+
       - name: Install dependencies
         run: npm install
 
       - name: Sync web assets & Android plugins
         run: npx cap sync
 
-      - name: Build debug APK
+      - name: Build release APK
         run: |
           cd android
           chmod +x gradlew
-          ANDROID_HOME="" ./gradlew assembleDebug --no-daemon
+          ANDROID_HOME="" ./gradlew assembleRelease --no-daemon
 
       - name: Rename APK
         run: |
-          mv android/app/build/outputs/apk/debug/app-debug.apk \
-             android/app/build/outputs/apk/debug/mcu-review-app-v${{ steps.version.outputs.APP_VERSION }}.apk
+          mv android/app/build/outputs/apk/release/app-release.apk \
+             android/app/build/outputs/apk/release/mcu-review-app-v${{ steps.version.outputs.APP_VERSION }}.apk
+
+      - name: Generate Release Notes
+        id: notes
+        run: |
+          TAG="${{ steps.version.outputs.TAG_NAME }}"
+          PREV_TAG=$(git tag --sort=-creatordate | head -2 | tail -1 || echo "")
+          NOTES="📱 **微机原理复习宝典 v${{ steps.version.outputs.APP_VERSION }}**"
+          if [ "${{ steps.version.outputs.APP_VERSION }}" = "1.0.2" ]; then
+            NOTES="$NOTES"$'\n\n'"本次更新："
+          else
+            NOTES="$NOTES"$'\n'
+          fi
+          if [ -n "$PREV_TAG" ]; then
+            NOTES="$NOTES"$'\n'"---"
+            # Group commits by type
+            FEATS=$(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep -c "^[0-9a-f]* feat" || true)
+            FIXES=$(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep -c "^[0-9a-f]* fix" || true)
+            CHORES=$(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep -c "^[0-9a-f]* chore\|^[0-9a-f]* docs" || true)
+
+            if [ "$FEATS" -gt 0 ]; then
+              NOTES="$NOTES"$'\n'"### 🚀 新功能"
+              while IFS= read -r line; do
+                MSG=$(echo "$line" | sed 's/^[0-9a-f]* feat: //')
+                NOTES="$NOTES"$'\n'"- $MSG"
+              done < <(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep "^[0-9a-f]* feat")
+            fi
+            if [ "$FIXES" -gt 0 ]; then
+              NOTES="$NOTES"$'\n'"### 🐛 修复"
+              while IFS= read -r line; do
+                MSG=$(echo "$line" | sed 's/^[0-9a-f]* fix: //')
+                NOTES="$NOTES"$'\n'"- $MSG"
+              done < <(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep "^[0-9a-f]* fix")
+            fi
+            if [ "$CHORES" -gt 0 ]; then
+              NOTES="$NOTES"$'\n'"### 📝 其他"
+              while IFS= read -r line; do
+                MSG=$(echo "$line" | sed 's/^[0-9a-f]*.*: //')
+                NOTES="$NOTES"$'\n'"- $MSG"
+              done < <(git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null | grep "^[0-9a-f]* chore\|^[0-9a-f]* docs")
+            fi
+          else
+            NOTES="$NOTES"$'\n'"首次发布 🎉"
+          fi
+          # Write notes to file to avoid shell escaping issues
+          echo "$NOTES" > release_notes.md
+          echo "NOTES_FILE=release_notes.md" >> $GITHUB_OUTPUT
 
       - name: Create Release
         run: |
           TAG="${{ steps.version.outputs.TAG_NAME }}"
-          # Delete existing release & tag if any (re-run for same version)
           gh release delete "$TAG" --yes 2>/dev/null || true
           git push origin --delete "$TAG" 2>/dev/null || true
-          # Generate release notes from commits since last tag
-          PREV_TAG=$(git tag --sort=-creatordate | head -2 | tail -1 || echo "")
-          NOTES="📱 微机原理复习宝典 v${{ steps.version.outputs.APP_VERSION }}"
-          if [ -n "$PREV_TAG" ]; then
-            NOTES="$NOTES"$'\n'"$(
-              echo ""
-              echo "---"
-              git log --oneline --no-decorate "$PREV_TAG..HEAD" 2>/dev/null || git log --oneline -5
-            )"
-          fi
-          # Create release and upload APK
           gh release create "$TAG" \
             --title "v${{ steps.version.outputs.APP_VERSION }}" \
-            --notes "$NOTES" \
+            --notes-file "${{ steps.notes.outputs.NOTES_FILE }}" \
             --latest \
-            android/app/build/outputs/apk/debug/mcu-review-app-v${{ steps.version.outputs.APP_VERSION }}.apk
+            android/app/build/outputs/apk/release/mcu-review-app-v${{ steps.version.outputs.APP_VERSION }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
