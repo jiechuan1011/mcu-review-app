@@ -29,23 +29,26 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Extract version
+      - name: Auto-bump version
         id: version
         run: |
-          VER=$(grep "APP_VERSION" www/index.html | sed "s/.*'\(.*\)'.*/\1/")
-          echo "APP_VERSION=$VER" >> $GITHUB_OUTPUT
-          echo "TAG_NAME=v$VER" >> $GITHUB_OUTPUT
-
-      - name: Auto-update versionCode
-        run: |
-          VER="${{ steps.version.outputs.APP_VERSION }}"
-          # Convert 1.0.2 → 10002, 1.0.3 → 10003, etc.
-          MAJOR=$(echo "$VER" | cut -d. -f1)
-          MINOR=$(echo "$VER" | cut -d. -f2)
-          PATCH=$(echo "$VER" | cut -d. -f3)
-          VCODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
-          echo "versionCode=$VCODE"
+          OLD_VER=$(grep "APP_VERSION" www/index.html | sed "s/.*'\(.*\)'.*/\1/")
+          echo "OLD_VERSION=$OLD_VER" >> $GITHUB_OUTPUT
+          # Bump patch: 1.0.3 → 1.0.4
+          MAJOR=$(echo "$OLD_VER" | cut -d. -f1)
+          MINOR=$(echo "$OLD_VER" | cut -d. -f2)
+          PATCH=$(echo "$OLD_VER" | cut -d. -f3)
+          NEW_VER="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          echo "APP_VERSION=$NEW_VER" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=v$NEW_VER" >> $GITHUB_OUTPUT
+          # Update index.html
+          sed -i "s/const APP_VERSION = '${OLD_VER}';/const APP_VERSION = '${NEW_VER}';/" www/index.html
+          # Update build.gradle versionName
+          sed -i "s/versionName \"${OLD_VER}\"/versionName \"${NEW_VER}\"/" android/app/build.gradle
+          # Update versionCode
+          VCODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH + 1 ))
           sed -i "s/versionCode [0-9]*/versionCode $VCODE/" android/app/build.gradle
+          echo "version bump: $OLD_VER → $NEW_VER (versionCode: $VCODE)"
 
       - name: Install dependencies
         run: npm install
@@ -117,3 +120,11 @@ jobs:
             android/app/build/outputs/apk/release/mcu-review-app-v${{ steps.version.outputs.APP_VERSION }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add www/index.html android/app/build.gradle
+          git commit -m "chore: bump version to ${{ steps.version.outputs.APP_VERSION }} [skip ci]"
+          git push
