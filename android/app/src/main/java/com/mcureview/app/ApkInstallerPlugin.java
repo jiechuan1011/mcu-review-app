@@ -1,5 +1,10 @@
 package com.mcureview.app;
 
+/*
+ * Copyright (c) 2025 微机原理复习宝典
+ * All rights reserved.
+ */
+
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
@@ -24,6 +29,10 @@ public class ApkInstallerPlugin extends Plugin {
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
+    /**
+     * 从指定URL下载APK并调用系统安装器安装
+     * 通过 downloadProgress 事件实时推送下载进度
+     */
     @PluginMethod
     public void downloadAndInstall(PluginCall call) {
         String url = call.getString("url", "");
@@ -64,12 +73,10 @@ public class ApkInstallerPlugin extends Plugin {
                 fos.close();
                 is.close();
 
-                // Notify 100% progress
                 JSObject doneData = new JSObject();
                 doneData.put("progress", 100);
                 notifyListeners("downloadProgress", doneData);
 
-                // Install via system package installer
                 Uri apkUri = FileProvider.getUriForFile(getContext(),
                         getContext().getPackageName() + ".fileprovider", apkFile);
 

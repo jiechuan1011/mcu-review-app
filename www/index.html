@@ -980,16 +980,15 @@ function checkForUpdate() {
       if (!data.tag_name) return;
       const latestVer = data.tag_name.replace(/^v/i, '');
       if (compareVersions(latestVer, APP_VERSION) > 0 && latestVer !== ignoredVersion) {
-        // Find APK asset URL
         let apkUrl = '';
         if (data.assets && data.assets.length > 0) {
           const apk = data.assets.find(a => a.name && a.name.endsWith('.apk'));
           if (apk) apkUrl = apk.browser_download_url;
         }
-        showUpdateBanner(latestVer, data.html_url, apkUrl, data.body || '');
+        showUpdateBanner(latestVer, data.html_url, apkUrl);
       }
     })
-    .catch(() => {}); // silently fail if offline
+    .catch(() => {});
 }
 
 function compareVersions(a, b) {
@@ -1010,11 +1009,11 @@ function showUpdateBanner(version, htmlUrl, apkUrl) {
   banner.id = 'updateBanner';
   banner.style.cssText = 'background:linear-gradient(135deg,var(--primary),#6366f1);color:#fff;padding:12px 20px;text-align:center;font-size:13px;position:sticky;top:144px;z-index:98;box-shadow:0 2px 8px rgba(0,0,0,0.1);';
   const downloadBtn = apkUrl
-    ? `<button onclick="downloadAPK('${apkUrl}','v${version}')" style="padding:5px 14px;border:none;border-radius:6px;background:#fff;color:var(--primary);font-weight:700;cursor:pointer;font-size:12px;">📥 下载安装</button>`
+    ? `<button onclick="downloadAPK('${apkUrl}','v${version}')" style="padding:5px 14px;border:none;border-radius:6px;background:#fff;color:var(--primary);font-weight:700;cursor:pointer;font-size:12px;">下载安装</button>`
     : `<button onclick="window.open('${htmlUrl}','_system')" style="padding:5px 14px;border:none;border-radius:6px;background:#fff;color:var(--primary);font-weight:700;cursor:pointer;font-size:12px;">GitHub 下载</button>`;
   banner.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
-      <span>📥 新版本 <strong>v${version}</strong> 可用</span>
+      <span>新版本 <strong>v${version}</strong> 可用</span>
       ${downloadBtn}
       <button onclick="this.closest('#updateBanner').remove();localStorage.setItem('mc_ignored_version','${version}')" style="padding:5px 14px;border:1px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:12px;">忽略本次</button>
     </div>`;
@@ -1026,10 +1025,9 @@ function downloadAPK(url, version) {
   const banner = document.getElementById('updateBanner');
   if (!banner) return;
 
-  // Switch banner to progress mode
   banner.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:4px 0;">
-      <span style="font-size:13px;">📥 正在下载 <strong>${version}</strong> ...</span>
+      <span style="font-size:13px;">正在下载 <strong>${version}</strong> ...</span>
       <div style="width:100%;max-width:260px;background:rgba(255,255,255,0.25);border-radius:10px;overflow:hidden;height:8px;">
         <div id="dlProgress" style="width:0%;height:100%;background:#fff;border-radius:10px;transition:width .25s ease;"></div>
       </div>
@@ -1046,14 +1044,13 @@ function downloadAPK(url, version) {
   const showError = (msg) => {
     banner.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
-        <span>❌ 下载失败${msg ? ': ' + msg : ''}</span>
+        <span>下载失败${msg ? ': ' + msg : ''}</span>
         <button onclick="downloadAPK('${url}','${version}')" style="padding:4px 12px;border:none;border-radius:6px;background:#fff;color:var(--primary);font-weight:700;cursor:pointer;font-size:12px;">重试</button>
         <button onclick="this.closest('#updateBanner').remove()" style="padding:4px 12px;border:1px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:12px;">关闭</button>
       </div>`;
     setTimeout(() => { if (banner.parentNode) banner.remove(); }, 10000);
   };
 
-  // Try Capacitor native plugin first (Android)
   if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.ApkInstaller) {
     let listener;
     Capacitor.Plugins.ApkInstaller.addListener('downloadProgress', (data) => {
@@ -1067,7 +1064,7 @@ function downloadAPK(url, version) {
       if (listener) listener.remove();
       banner.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
-          <span>✅ 下载完成，正在安装...</span>
+          <span>下载完成，正在安装...</span>
         </div>`;
       setTimeout(() => { if (banner.parentNode) banner.remove(); }, 8000);
     }).catch((err) => {
@@ -1077,7 +1074,6 @@ function downloadAPK(url, version) {
     return;
   }
 
-  // ---- Web fallback: XHR download with progress ----
   const xhr = new XMLHttpRequest();
   xhr.open('GET', url, true);
   xhr.responseType = 'blob';
@@ -1102,10 +1098,9 @@ function downloadAPK(url, version) {
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
 
-      // Show done state
       banner.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
-          <span>✅ 下载完成，请打开通知栏或下载文件夹安装</span>
+          <span>下载完成，请打开通知栏或下载文件夹安装</span>
           <button onclick="this.closest('#updateBanner').remove()" style="padding:4px 12px;border:1px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:12px;">关闭</button>
         </div>`;
       setTimeout(() => { if (banner.parentNode) banner.remove(); }, 15000);

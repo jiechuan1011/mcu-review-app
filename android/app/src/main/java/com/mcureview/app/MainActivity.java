@@ -1,5 +1,10 @@
 package com.mcureview.app;
 
+/*
+ * Copyright (c) 2025 微机原理复习宝典
+ * All rights reserved.
+ */
+
 import android.os.Bundle;
 
 import com.getcapacitor.BridgeActivity;
