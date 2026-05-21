@@ -32,8 +32,8 @@ jobs:
       - name: Auto-bump version
         id: version
         run: |
-          OLD_VER=$(grep "APP_VERSION" www/index.html | sed "s/.*'\(.*\)'.*/\1/")
-          echo "OLD_VERSION=$OLD_VER" >> $GITHUB_OUTPUT
+          OLD_VER=$(grep "^const APP_VERSION" www/index.html | sed "s/.*'\(.*\)'.*/\1/")
+          echo "OLD_VERSION=$OLD_VER"
           # Bump patch: 1.0.3 → 1.0.4
           MAJOR=$(echo "$OLD_VER" | cut -d. -f1)
           MINOR=$(echo "$OLD_VER" | cut -d. -f2)
@@ -42,11 +42,10 @@ jobs:
           echo "APP_VERSION=$NEW_VER" >> $GITHUB_OUTPUT
           echo "TAG_NAME=v$NEW_VER" >> $GITHUB_OUTPUT
           # Update index.html
-          sed -i "s/const APP_VERSION = '${OLD_VER}';/const APP_VERSION = '${NEW_VER}';/" www/index.html
-          # Update build.gradle versionName
-          sed -i "s/versionName \"${OLD_VER}\"/versionName \"${NEW_VER}\"/" android/app/build.gradle
-          # Update versionCode
+          sed -i "s/^const APP_VERSION = '${OLD_VER}';/const APP_VERSION = '${NEW_VER}';/" www/index.html
+          # Update build.gradle versionName and versionCode
           VCODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH + 1 ))
+          sed -i "s/versionName \"${OLD_VER}\"/versionName \"${NEW_VER}\"/" android/app/build.gradle
           sed -i "s/versionCode [0-9]*/versionCode $VCODE/" android/app/build.gradle
           echo "version bump: $OLD_VER → $NEW_VER (versionCode: $VCODE)"
 
