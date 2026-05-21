@@ -401,6 +401,11 @@ main.active { display: block; }
 </main>
 
 <script>
+// Helper: format programming marked text with red highlights + dim comments
+function fmtMarked(t) {
+  return t.replace(/;(.+)/g,'<span style="color:var(--text-light);font-style:italic">;$1</span>').replace(/<red>/g,'<span style="color:red;font-weight:700">').replace(/<\/red>/g,'</span>');
+}
+
 // ============================================================
 // DATA: Notes
 // ============================================================
@@ -1130,7 +1135,7 @@ function renderWrongQuestions() {
       ${q.explanation ? `<div class="q-answer correct-ans" id="wa_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}" style="font-size:12px;margin-top:4px;">${q.explanation}</div>` : ''}
       ${q.marked ? `<div id="wc_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}" style="display:none;margin-top:8px;padding:10px;background:#f8fafc;border-radius:8px;font-family:monospace;font-size:13px;line-height:1.8;">
         <div style="font-weight:600;margin-bottom:6px;font-size:12px;font-family:sans-serif;">📝 你的回答：</div>
-        <div style="white-space:pre-wrap;">${q.marked.replace(/<red>/g,'<span style="color:red;font-weight:700">').replace(/<\/red>/g,'</span>')}</div>
+        <div style="white-space:pre-wrap;">${fmtMarked(q.marked)}</div>
         ${q.correctCode ? `<div style="font-weight:600;margin:10px 0 6px;font-size:12px;font-family:sans-serif;">✅ 标准答案：</div>
         <div style="white-space:pre-wrap;color:var(--success);">${q.correctCode}</div>` : ''}
       </div>` : ''}
@@ -2132,7 +2137,7 @@ function qzSubmitProg() {
     } catch(e) { correct = false; marked = '批改解析失败'; }
     result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
 
-    const displayMarked = marked.replace(/<red>/g, '<span style="color:red;font-weight:700">').replace(/<\/red>/g, '</span>');
+    const displayMarked = fmtMarked(marked);
 
     quizAnalysis[quizIndex] = { correct, marked, correctCode, userAnswer };
     result.innerHTML = correct
@@ -2192,7 +2197,7 @@ function showQuizResult() {
           let extra = '';
           if (q.type === 'prog') {
             if (a && a.marked) {
-              const markedHtml = a.marked.replace(/<red>/g,'<span style="color:red;font-weight:700">').replace(/<\/red>/g,'</span>');
+              const markedHtml = fmtMarked(a.marked);
               extra += `<div style="font-family:monospace;font-size:12px;margin:4px 0;white-space:pre-wrap;">${markedHtml}</div>`;
             }
             extra += `<div style="font-family:monospace;font-size:12px;color:var(--success);margin:2px 0;white-space:pre-wrap;">✅ 标准答案：\n${a?.correctCode || q.answer || ''}</div>`;
@@ -2553,7 +2558,7 @@ async function newqGradeProg(nid) {
   } catch(e) { correct = false; marked = '批改失败'; }
 
   result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
-  const displayMarked = marked.replace(/<red>/g,'<span style="color:red;font-weight:700">').replace(/<\/red>/g,'</span>');
+  const displayMarked = fmtMarked(marked);
   result.innerHTML = correct
     ? `✅ 正确`
     : `<div style="font-family:monospace;font-size:13px;line-height:1.8;white-space:pre-wrap;">${displayMarked}</div>
