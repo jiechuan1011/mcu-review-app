@@ -2025,7 +2025,6 @@ function qzSubmitChoice() {
   ans.classList.add('show');
   ans.classList.add(correct ? 'correct-ans' : 'wrong-ans');
   ans.innerHTML = `<span class="label">${correct ? '✅ 正确！' : '❌ 错误'}</span><br>${q.explanation}`;
-  if (!correct && q.id) addToWrong({ id: q.id, type: 'choice', question: q.question, tag: q.tag, options: q.options, explanation: q.explanation, answer: q.answer });
   setTimeout(() => qzNext(correct), 1500);
 }
 
@@ -2050,7 +2049,6 @@ function qzSubmitTF() {
   ans.classList.add('show');
   ans.classList.add(correct ? 'correct-ans' : 'wrong-ans');
   ans.innerHTML = `<span class="label">${correct ? '✅ 正确！' : '❌ 错误'}</span><br>${q.explanation}`;
-  if (!correct && q.id) addToWrong({ id: q.id, type: 'tf', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
   setTimeout(() => qzNext(correct), 1500);
 }
 
@@ -2069,7 +2067,6 @@ function qzSubmitFill() {
   ans.classList.add(allCorrect ? 'correct-ans' : 'wrong-ans');
   ans.innerHTML = `<span class="label">${allCorrect ? '✅ 全对！' : '❌ 有误'}</span><br>答案：${q.blanks.join('、')}`;
   q.blanks.forEach((_, bi) => { const inp = document.getElementById(`qzFill_${bi}`); if (inp) inp.disabled = true; });
-  if (!allCorrect) addToWrong({ id: `qz_fill_${quizIndex}`, type: 'fill', question: q.text.replace(/_{4,}/g, '____'), tag: q.tag, explanation: `答案：${q.blanks.join('、')}` });
   setTimeout(() => qzNext(allCorrect), 1500);
 }
 
@@ -2078,6 +2075,15 @@ function qzNext(correct) {
   if (q) {
     const qid = q.id || `qz_${quizIndex}`;
     recordAnswer(qid, correct);
+    if (!correct) {
+      if (q.type === 'prog') {
+        addToWrong({ id: qid, type: 'prog', question: q.question, tag: q.tag, answer: q.answer, explanation: q.explanation || '' });
+      } else if (q.type === 'fill') {
+        addToWrong({ id: qid, type: 'fill', question: (q.question || q.text || '').replace(/_{4,}/g, '____'), tag: q.tag, explanation: `答案：${q.blanks?.join('、') || ''}` });
+      } else {
+        addToWrong({ id: qid, type: q.type, question: q.question, tag: q.tag, options: q.options, answer: q.answer, explanation: q.explanation || '' });
+      }
+    }
   }
   if (correct) quizScore++;
   quizIndex++;
@@ -2098,7 +2104,7 @@ function showQuizResult() {
       <div class="stars">${stars}</div>
       <div style="margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
         <button class="generate-btn" onclick="resetQuiz()">再来一次</button>
-        <button class="btn-show-answer" onclick="document.getElementById('quizDetail').classList.toggle('show')" style="padding:12px 24px;border-radius:var(--radius);font-weight:600;cursor:pointer;">查看详情</button>
+        <button class="btn-show-answer" onclick="var d=document.getElementById('quizDetail');d.style.display=d.style.display==='block'?'none':'block'" style="padding:12px 24px;border-radius:var(--radius);font-weight:600;cursor:pointer;">查看详情</button>
       </div>
       <div id="quizDetail" style="display:none;margin-top:16px;font-size:13px;text-align:left;">
         ${quizQuestions.map((q, i) => `<div style="padding:6px 0;border-bottom:1px solid var(--border);">
