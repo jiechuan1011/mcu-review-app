@@ -1023,19 +1023,100 @@ function showUpdateBanner(version, htmlUrl, apkUrl) {
 }
 
 function downloadAPK(url, version) {
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'mcu-review-app-' + version + '.apk';
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  // Show install hint
-  const hint = document.createElement('div');
-  hint.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 24px;border-radius:12px;font-size:14px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,0.3);animation:fadeIn .3s ease;';
-  hint.textContent = 'APK 已开始下载，下载完成后打开即可安装';
-  document.body.appendChild(hint);
-  setTimeout(() => hint.remove(), 5000);
+  const banner = document.getElementById('updateBanner');
+  if (!banner) return;
+
+  // Switch banner to progress mode
+  banner.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:4px 0;">
+      <span style="font-size:13px;">📥 正在下载 <strong>${version}</strong> ...</span>
+      <div style="width:100%;max-width:260px;background:rgba(255,255,255,0.25);border-radius:10px;overflow:hidden;height:8px;">
+        <div id="dlProgress" style="width:0%;height:100%;background:#fff;border-radius:10px;transition:width .25s ease;"></div>
+      </div>
+      <span id="dlPercent" style="font-size:11px;opacity:0.9;">0%</span>
+    </div>`;
+
+  const updateProgress = (pct) => {
+    const bar = document.getElementById('dlProgress');
+    const txt = document.getElementById('dlPercent');
+    if (bar) bar.style.width = Math.min(pct, 100) + '%';
+    if (txt) txt.textContent = Math.min(pct, 100) + '%';
+  };
+
+  const showError = (msg) => {
+    banner.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
+        <span>❌ 下载失败${msg ? ': ' + msg : ''}</span>
+        <button onclick="downloadAPK('${url}','${version}')" style="padding:4px 12px;border:none;border-radius:6px;background:#fff;color:var(--primary);font-weight:700;cursor:pointer;font-size:12px;">重试</button>
+        <button onclick="this.closest('#updateBanner').remove()" style="padding:4px 12px;border:1px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:12px;">关闭</button>
+      </div>`;
+    setTimeout(() => { if (banner.parentNode) banner.remove(); }, 10000);
+  };
+
+  // Try Capacitor native plugin first (Android)
+  if (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.ApkInstaller) {
+    let listener;
+    Capacitor.Plugins.ApkInstaller.addListener('downloadProgress', (data) => {
+      updateProgress(data.progress || 0);
+    }).then(h => { listener = h; });
+
+    Capacitor.Plugins.ApkInstaller.downloadAndInstall({
+      url: url,
+      fileName: 'mcu-review-' + version + '.apk'
+    }).then(() => {
+      if (listener) listener.remove();
+      banner.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+          <span>✅ 下载完成，正在安装...</span>
+        </div>`;
+      setTimeout(() => { if (banner.parentNode) banner.remove(); }, 8000);
+    }).catch((err) => {
+      if (listener) listener.remove();
+      showError(err.message || '');
+    });
+    return;
+  }
+
+  // ---- Web fallback: XHR download with progress ----
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', url, true);
+  xhr.responseType = 'blob';
+
+  xhr.onprogress = (e) => {
+    if (e.lengthComputable && e.total > 0) {
+      updateProgress(Math.round((e.loaded / e.total) * 100));
+    }
+  };
+
+  xhr.onload = () => {
+    if (xhr.status === 200) {
+      updateProgress(100);
+      const blob = xhr.response;
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = 'mcu-review-app-' + version + '.apk';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+
+      // Show done state
+      banner.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
+          <span>✅ 下载完成，请打开通知栏或下载文件夹安装</span>
+          <button onclick="this.closest('#updateBanner').remove()" style="padding:4px 12px;border:1px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:12px;">关闭</button>
+        </div>`;
+      setTimeout(() => { if (banner.parentNode) banner.remove(); }, 15000);
+    } else {
+      showError('HTTP ' + xhr.status);
+    }
+  };
+
+  xhr.onerror = () => showError('网络错误');
+  xhr.ontimeout = () => showError('连接超时');
+  xhr.send();
 }
 
 // ============================================================
