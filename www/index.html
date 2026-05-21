@@ -403,7 +403,7 @@ main.active { display: block; }
 <script>
 // Helper: format programming marked text with red highlights + dim comments
 function fmtMarked(t) {
-  return t.replace(/;(.+)/g,'<span style="color:var(--text-light);font-style:italic">;$1</span>').replace(/<red>/g,'<span style="color:red;font-weight:700">').replace(/<\/red>/g,'</span>');
+  return t.replace(/;([^<\n]+)/g,'<span style="color:var(--text-light);font-style:italic">;$1</span>').replace(/<red>/g,'<span style="color:red;font-weight:700">').replace(/<\/red>/g,'</span>');
 }
 
 // ============================================================
