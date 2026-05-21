@@ -195,7 +195,19 @@ main.active { display: block; }
 <header>
   <h1>微机原理复习宝典</h1>
   <p>8088 · 8259A · 8253 · 8255 · 汇编 · 存储器</p>
+  <div style="position:absolute;top:10px;right:16px;">
+    <button onclick="toggleSettings()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:4px;" title="设置">⚙️</button>
+  </div>
 </header>
+<div id="settingsPanel" style="display:none;background:#fff;border-bottom:2px solid var(--primary);padding:12px 20px;font-size:13px;max-width:800px;margin:0 auto;">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="font-weight:600;white-space:nowrap;">DeepSeek API 密钥：</span>
+    <input id="deepseekKeyInput" type="password" placeholder="sk-..." value="${deepseekApiKey}" style="flex:1;min-width:150px;padding:6px 10px;border:2px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;">
+    <button onclick="saveDeepSeekKey()" style="padding:6px 14px;border:none;border-radius:6px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;font-size:12px;">保存</button>
+    <span id="dsKeyStatus" style="font-size:12px;"></span>
+  </div>
+  <p style="color:var(--text-light);margin-top:6px;font-size:11px;">用于新题批改和解析，密钥仅保存在本地浏览器，不会上传到服务器。</p>
+</div>
 
 <nav id="mainNav">
   <button class="active" data-tab="notes">📖 笔记</button>
@@ -279,8 +291,14 @@ main.active { display: block; }
     <h2>❌ 错题本</h2>
     <p>答错的题都在这里，集中攻克薄弱环节</p>
   </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+    <button class="section-select-btn wrong-filter-btn active" data-wf="all" onclick="setWrongFilter('all')" style="padding:6px 14px;border:2px solid var(--border);border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;background:var(--primary-light);border-color:var(--primary);color:var(--primary);">全部</button>
+    <button class="section-select-btn wrong-filter-btn" data-wf="new" onclick="setWrongFilter('new')" style="padding:6px 14px;border:2px solid var(--border);border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;">新题（7天内）</button>
+    <button class="section-select-btn wrong-filter-btn" data-wf="old" onclick="setWrongFilter('old')" style="padding:6px 14px;border:2px solid var(--border);border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;">旧题</button>
+  </div>
   <div id="wrongStats" style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
     <span style="font-size:13px;color:var(--text-light);" id="wrongCountDisplay">共 0 道错题</span>
+    <span id="answerStatsSummary" style="font-size:13px;color:var(--text-light);"></span>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
     <button onclick="startWrongQuiz()" class="generate-btn small" id="wrongQuizBtn" style="display:none;">🎯 错题重练</button>
@@ -762,9 +780,24 @@ let quizTime = 0;
 
 // Wrong questions state (persisted in localStorage)
 let wrongQuestions = [];
+let wrongFilter = 'all'; // 'all', 'new', 'old'
 
 // Notes self-test state
 let notesSelfTestOn = false;
+
+// Answer statistics (per question: total attempts, correct, wrong)
+let answerStats = {};
+
+// Wrong quiz correct count (per question: how many times answered correctly in wrong quiz)
+let wrongCorrectCount = {};
+
+// DeepSeek API key
+let deepseekApiKey = localStorage.getItem('mc_deepseek_key') || '';
+
+// App version for update checking
+const APP_VERSION = '1.0.0';
+const GITHUB_REPO = 'jiechuan1011/mcu-review-app';
+let ignoredVersion = localStorage.getItem('mc_ignored_version') || '';
 
 // Load wrong questions from localStorage
 function loadWrongQuestions() {
@@ -789,6 +822,91 @@ function updateWrongBadge() {
   if (countDisplay) countDisplay.textContent = `共 ${wrongQuestions.length} 道错题`;
   const quizBtn = document.getElementById('wrongQuizBtn');
   if (quizBtn) quizBtn.style.display = wrongQuestions.length > 0 ? 'inline-block' : 'none';
+}
+
+// ============================================================
+// ANSWER STATISTICS
+// ============================================================
+function loadAnswerStats() {
+  try {
+    const data = localStorage.getItem('mc_answer_stats');
+    if (data) answerStats = JSON.parse(data);
+  } catch(e) { answerStats = {}; }
+}
+
+function saveAnswerStats() {
+  try { localStorage.setItem('mc_answer_stats', JSON.stringify(answerStats)); } catch(e) {}
+}
+
+function recordAnswer(qid, correct) {
+  if (!qid) return;
+  if (!answerStats[qid]) answerStats[qid] = { total: 0, correct: 0, wrong: 0 };
+  answerStats[qid].total++;
+  if (correct) answerStats[qid].correct++;
+  else answerStats[qid].wrong++;
+  saveAnswerStats();
+}
+
+function getErrorRate(qid) {
+  if (!qid || !answerStats[qid] || answerStats[qid].total === 0) return 0.5;
+  return answerStats[qid].wrong / answerStats[qid].total;
+}
+
+// ============================================================
+// WRONG QUIZ CORRECT COUNT (track correct answers per question)
+// ============================================================
+function loadWrongCorrectCount() {
+  try {
+    const data = localStorage.getItem('mc_wrong_correct_count');
+    if (data) wrongCorrectCount = JSON.parse(data);
+  } catch(e) { wrongCorrectCount = {}; }
+}
+
+function saveWrongCorrectCount() {
+  try { localStorage.setItem('mc_wrong_correct_count', JSON.stringify(wrongCorrectCount)); } catch(e) {}
+}
+
+// ============================================================
+// UPDATE CHECK
+// ============================================================
+function checkForUpdate() {
+  fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.tag_name) return;
+      const latestVer = data.tag_name.replace(/^v/i, '');
+      if (compareVersions(latestVer, APP_VERSION) > 0 && latestVer !== ignoredVersion) {
+        showUpdateBanner(latestVer, data.html_url, data.body || '');
+      }
+    })
+    .catch(() => {}); // silently fail if offline
+}
+
+function compareVersions(a, b) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] || 0, nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
+
+function showUpdateBanner(version, url, body) {
+  const existing = document.getElementById('updateBanner');
+  if (existing) existing.remove();
+  const banner = document.createElement('div');
+  banner.id = 'updateBanner';
+  banner.style.cssText = 'background:linear-gradient(135deg,var(--primary),#6366f1);color:#fff;padding:12px 20px;text-align:center;font-size:13px;position:sticky;top:110px;z-index:98;';
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
+      <span>📥 新版本 <strong>v${version}</strong> 可用</span>
+      <button onclick="window.open('${url}','_blank')" style="padding:5px 14px;border:none;border-radius:6px;background:#fff;color:var(--primary);font-weight:700;cursor:pointer;font-size:12px;">GitHub 下载</button>
+      <button onclick="this.closest('#updateBanner').remove();localStorage.setItem('mc_ignored_version','${version}')" style="padding:5px 14px;border:1px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:12px;">忽略本次</button>
+    </div>`;
+  const nav = document.getElementById('mainNav');
+  nav.parentNode.insertBefore(banner, nav.nextSibling);
 }
 
 // ============================================================
@@ -829,41 +947,72 @@ function getQuestionTypeTag(q) {
   return 'prog';
 }
 
+function setWrongFilter(filter) {
+  wrongFilter = filter;
+  document.querySelectorAll('.wrong-filter-btn').forEach(b => {
+    b.style.background = b.dataset.wf === filter ? 'var(--primary-light)' : '#fff';
+    b.style.borderColor = b.dataset.wf === filter ? 'var(--primary)' : 'var(--border)';
+    b.style.color = b.dataset.wf === filter ? 'var(--primary)' : 'var(--text-light)';
+  });
+  renderWrongQuestions();
+}
+
 function renderWrongQuestions() {
   const container = document.getElementById('wrongContainer');
   const quizBtn = document.getElementById('wrongQuizBtn');
 
-  if (wrongQuestions.length === 0) {
-    container.innerHTML = '<div class="card wrong-empty"><div class="big">🎉</div><p>暂无错题，继续保持！</p></div>';
-    if (quizBtn) quizBtn.style.display = 'none';
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  let filtered = wrongQuestions;
+  if (wrongFilter === 'new') filtered = wrongQuestions.filter(q => q.addedAt >= sevenDaysAgo);
+  else if (wrongFilter === 'old') filtered = wrongQuestions.filter(q => q.addedAt < sevenDaysAgo);
+
+  if (filtered.length === 0) {
+    const msg = wrongFilter === 'new' ? '没有新错题' : wrongFilter === 'old' ? '没有旧错题' : '暂无错题，继续保持！';
+    container.innerHTML = `<div class="card wrong-empty"><div class="big">🎉</div><p>${msg}</p></div>`;
+    if (quizBtn) quizBtn.style.display = wrongQuestions.length > 0 ? 'inline-block' : 'none';
     return;
   }
 
   if (quizBtn) quizBtn.style.display = 'inline-block';
 
-  container.innerHTML = wrongQuestions.map((q, i) => {
+  // Update answer stats summary
+  const totalAnswered = Object.values(answerStats).reduce((s, v) => s + v.total, 0);
+  const totalCorrect = Object.values(answerStats).reduce((s, v) => s + v.correct, 0);
+  const statsEl = document.getElementById('answerStatsSummary');
+  if (statsEl && totalAnswered > 0) {
+    const rate = Math.round(totalCorrect / totalAnswered * 100);
+    statsEl.textContent = `· 答题 ${totalAnswered} 次 · 正确率 ${rate}%`;
+  } else if (statsEl) {
+    statsEl.textContent = '';
+  }
+
+  container.innerHTML = filtered.map((q) => {
     const qText = q.question || (q.text || '');
     const tagClass = getQuestionTypeTag(q);
+    const cc = wrongCorrectCount[q.id] || 0;
 
     return `<div class="wrong-card">
       <div class="wrong-meta">
         <span class="w-tag tag-${tagClass}">${getQuestionTypeLabel(q)}</span>
         ${q.tag ? `<span class="w-tag tag-${q.tag}">${q.tag}</span>` : ''}
         <span class="w-date">${new Date(q.addedAt).toLocaleDateString('zh-CN')}</span>
+        ${cc > 0 ? `<span class="w-tag" style="background:#f0fdf4;color:#16a34a;">重练正确${cc}次</span>` : ''}
       </div>
       <div class="q-text" style="font-size:14px;margin-bottom:4px;">${qText.substring(0, 120)}${qText.length > 120 ? '...' : ''}</div>
-      ${q.explanation ? `<div class="q-answer show correct-ans" style="font-size:12px;margin-top:4px;">${q.explanation}</div>` : ''}
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+        <button class="btn-show-answer" onclick="var el=document.getElementById('wa_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}');el.classList.toggle('show');this.textContent=el.classList.contains('show')?'隐藏答案':'显示答案'" style="font-size:12px;padding:4px 12px;">显示答案</button>
+      </div>
+      ${q.explanation ? `<div class="q-answer correct-ans" id="wa_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}" style="font-size:12px;margin-top:4px;">${q.explanation}</div>` : ''}
       <div class="w-actions">
-        <button class="btn-forget" onclick="forgetWrong(${i})">✅ 已掌握</button>
-        <button class="btn-forget" onclick="removeFromWrong('${q.id}')" style="background:var(--text-light);">🗑️ 移除</button>
+        <button class="btn-forget" onclick="forgetWrong('${q.id.replace(/'/g,"\\'")}')">✅ 已掌握</button>
+        <button class="btn-forget" onclick="removeFromWrong('${q.id.replace(/'/g,"\\'")}')" style="background:var(--text-light);">🗑️ 移除</button>
       </div>
     </div>`;
   }).join('');
 }
 
-function forgetWrong(idx) {
-  // Move to end as "reviewed" - actually just remove
-  removeFromWrong(wrongQuestions[idx].id);
+function forgetWrong(id) {
+  removeFromWrong(id);
 }
 
 // ============================================================
@@ -873,6 +1022,8 @@ let wrongQuizActive = false;
 let wrongQuizQuestions = [];
 let wrongQuizIndex = 0;
 let wrongQuizScore = 0;
+let wrongQuizTimer = null;
+let wrongQuizTime = 0;
 
 function startWrongQuiz() {
   if (wrongQuestions.length === 0) { alert('暂无错题！'); return; }
@@ -881,10 +1032,18 @@ function startWrongQuiz() {
   wrongQuizQuestions = [...wrongQuestions].sort(() => Math.random() - 0.5);
   wrongQuizIndex = 0;
   wrongQuizScore = 0;
+  wrongQuizTime = 0;
 
   document.getElementById('wrongContainer').style.display = 'none';
   document.getElementById('wrongQuizBtn').style.display = 'none';
   document.getElementById('wrongQuizArea').style.display = 'block';
+
+  if (wrongQuizTimer) clearInterval(wrongQuizTimer);
+  wrongQuizTimer = setInterval(() => {
+    wrongQuizTime++;
+    const d = document.getElementById('wrongQuizTimerDisplay');
+    if (d) d.textContent = `${Math.floor(wrongQuizTime/60)}:${String(wrongQuizTime%60).padStart(2,'0')}`;
+  }, 1000);
 
   renderWrongQuizQuestion();
 }
@@ -899,18 +1058,30 @@ function renderWrongQuizQuestion() {
   const q = wrongQuizQuestions[wrongQuizIndex];
   const total = wrongQuizQuestions.length;
   const pct = wrongQuizIndex / total * 100;
+  const cc = wrongCorrectCount[q.id] || 0;
 
   let html = `
     <div class="wrong-quiz-header">
       <span class="wrong-quiz-progress">错题重练 · 第 ${wrongQuizIndex+1}/${total} 题</span>
-      <span style="font-size:13px;color:var(--success);font-weight:600;">✓ ${wrongQuizScore}</span>
+      <div style="display:flex;gap:12px;font-size:13px;">
+        <span id="wrongQuizTimerDisplay" style="color:var(--warning);font-weight:600;">0:00</span>
+        <span style="color:var(--success);font-weight:600;">✓ ${wrongQuizScore}</span>
+      </div>
     </div>
     <div class="quiz-progress"><div class="quiz-progress-bar" style="width:${pct}%"></div></div>
   `;
 
   html += `<div class="card"><div class="q-card">
-    <div class="q-number">${getQuestionTypeLabel(q)} <span class="tag tag-${q.tag||'asm'}">${q.tag||''}</span></div>
+    <div class="q-number">${getQuestionTypeLabel(q)} <span class="tag tag-${q.tag||'asm'}">${q.tag||''}</span>
+      ${cc > 0 ? `<span style="color:var(--success);font-size:11px;margin-left:8px;">已正确${cc}/3次</span>` : ''}
+    </div>
     <div class="q-text">${q.question || q.text || ''}</div>`;
+
+  // Show answer button (left side, before answering)
+  html += `<div style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn-show-answer" onclick="document.getElementById('wqzAnsPreview').classList.toggle('show');this.textContent=document.getElementById('wqzAnsPreview').classList.contains('show')?'隐藏答案':'显示答案'" style="font-size:12px;">显示答案</button>
+  </div>
+  <div class="q-answer correct-ans" id="wqzAnsPreview" style="font-size:12px;margin-bottom:8px;">${q.explanation || q.answer || '无解析'}</div>`;
 
   if (q.type === 'choice' && q.options) {
     html += `<div class="q-options" id="wqzOpts">
@@ -926,9 +1097,7 @@ function renderWrongQuizQuestion() {
     <div style="margin-bottom:8px;"><button class="btn-check" onclick="wqzSubmitTF()">提交</button></div>
     <div class="q-answer" id="wqzResult">${q.explanation ? `<span class="label">解析：</span>${q.explanation}` : ''}</div>`;
   } else {
-    html += `<div style="margin-bottom:8px;"><button class="btn-show-answer" onclick="document.getElementById('wqzResult').classList.toggle('show')">显示答案</button></div>
-    <div class="q-answer correct-ans" id="wqzResult">${q.answer || q.explanation || ''}</div>
-    <div style="display:flex;gap:8px;">
+    html += `<div style="display:flex;gap:8px;">
       <button class="btn-correct" onclick="wqzNext(true)">✓ 答对了</button>
       <button class="btn-wrong" onclick="wqzNext(false)">✗ 还是不会</button>
     </div>`;
@@ -966,10 +1135,9 @@ function wqzSubmitChoice() {
   const result = document.getElementById('wqzResult');
   result.classList.add('show');
   result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
-  // If answered correctly, remove from wrong
   if (correct) {
-    removeFromWrong(q.id);
-    result.innerHTML = '<span class="label">✅ 回答正确！已从错题本移除</span>';
+    const cc = (wrongCorrectCount[q.id] || 0) + 1;
+    result.innerHTML = `<span class="label">✅ 回答正确！已正确${cc}/3次</span>`;
   } else {
     result.innerHTML = `<span class="label">❌ 再想想</span><br>${q.explanation || ''}`;
   }
@@ -998,8 +1166,8 @@ function wqzSubmitTF() {
   result.classList.add('show');
   result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
   if (correct) {
-    removeFromWrong(q.id);
-    result.innerHTML = '<span class="label">✅ 正确！已从错题本移除</span>';
+    const cc = (wrongCorrectCount[q.id] || 0) + 1;
+    result.innerHTML = `<span class="label">✅ 正确！已正确${cc}/3次</span>`;
   } else {
     result.innerHTML = `<span class="label">❌ 错误</span><br>${q.explanation || ''}`;
   }
@@ -1007,7 +1175,37 @@ function wqzSubmitTF() {
 }
 
 function wqzNext(correct) {
-  if (correct) wrongQuizScore++;
+  const q = wrongQuizQuestions[wrongQuizIndex];
+  if (q) {
+    const qid = q.id || `wqz_${wrongQuizIndex}`;
+    recordAnswer(qid, correct);
+  }
+  if (correct) {
+    wrongQuizScore++;
+    // Track correct count in wrong quiz
+    if (q && q.id) {
+      const cc = (wrongCorrectCount[q.id] || 0) + 1;
+      wrongCorrectCount[q.id] = cc;
+      saveWrongCorrectCount();
+      // After 3 correct answers, prompt to remove
+      if (cc >= 3) {
+        const el = document.getElementById('wrongQuizArea');
+        // Wait a moment then show prompt
+        setTimeout(() => {
+          if (confirm(`你已经连续回答正确 "${(q.question||q.text||'').substring(0,40)}..." 3次，是否从错题本中移除？`)) {
+            removeFromWrong(q.id);
+            // Reset counter after removal
+            delete wrongCorrectCount[q.id];
+            saveWrongCorrectCount();
+          } else {
+            // Reset counter so user can keep practicing
+            wrongCorrectCount[q.id] = 0;
+            saveWrongCorrectCount();
+          }
+        }, 100);
+      }
+    }
+  }
   wrongQuizIndex++;
   wqzChoice = null;
   wqzTF = null;
@@ -1015,14 +1213,16 @@ function wqzNext(correct) {
 }
 
 function showWrongQuizResult() {
+  if (wrongQuizTimer) { clearInterval(wrongQuizTimer); wrongQuizTimer = null; }
   const total = wrongQuizQuestions.length;
   const pct = Math.round(wrongQuizScore / total * 100);
+  const timeStr = `${Math.floor(wrongQuizTime/60)}分${wrongQuizTime%60}秒`;
   document.getElementById('wrongQuizArea').innerHTML = `
     <div class="card quiz-result">
       <div class="score">${pct}%</div>
-      <div class="detail">${wrongQuizScore}/${total} 题回答正确</div>
+      <div class="detail">${wrongQuizScore}/${total} 题回答正确 · 用时 ${timeStr}</div>
       <div class="stars" style="margin-top:8px;font-size:14px;color:var(--text-light);">
-        已掌握 ${wrongQuizScore} 题，移除出错题本
+        错题重练完成，相同题正确3次后可移出错题本
       </div>
       <div style="margin-top:24px;">
         <button class="generate-btn" onclick="endWrongQuiz()">完成</button>
@@ -1032,6 +1232,7 @@ function showWrongQuizResult() {
 }
 
 function endWrongQuiz() {
+  if (wrongQuizTimer) { clearInterval(wrongQuizTimer); wrongQuizTimer = null; }
   wrongQuizActive = false;
   document.getElementById('wrongContainer').style.display = 'block';
   document.getElementById('wrongQuizArea').style.display = 'none';
@@ -1205,6 +1406,7 @@ function checkFillBlanks(gi, qi) {
   ansDiv.classList.add('show');
   ansDiv.classList.remove('correct-ans', 'wrong-ans');
   ansDiv.classList.add(allCorrect ? 'correct-ans' : 'wrong-ans');
+  recordAnswer(`fb_${gi}_${qi}`, allCorrect);
   if (!allCorrect) {
     addToWrong({ id: `fb_${gi}_${qi}`, type: 'fill', question: `[${group.title}] ${item.text.replace(/_{4,}/g, '____')}`, tag: group.tag, explanation: `答案：${item.blanks.join('、')}` });
     const btn = document.getElementById(`fb_add_${gi}_${qi}`);
@@ -1315,7 +1517,9 @@ function checkChoice(i) {
   });
   const ans = document.getElementById('choice_ans_' + i);
   ans.classList.add('show');
-  if (sel === q.answer) { ans.classList.remove('wrong-ans'); ans.classList.add('correct-ans'); }
+  const correct = sel === q.answer;
+  recordAnswer(q.id, correct);
+  if (correct) { ans.classList.remove('wrong-ans'); ans.classList.add('correct-ans'); }
   else {
     ans.classList.remove('correct-ans'); ans.classList.add('wrong-ans');
     addToWrong({ id: q.id, type: 'choice', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
@@ -1348,7 +1552,9 @@ function checkTF(i) {
   });
   const ans = document.getElementById('tf_ans_' + i);
   ans.classList.add('show');
-  if (sel === q.answer) { ans.classList.remove('wrong-ans'); ans.classList.add('correct-ans'); }
+  const correct = sel === q.answer;
+  recordAnswer(q.id, correct);
+  if (correct) { ans.classList.remove('wrong-ans'); ans.classList.add('correct-ans'); }
   else {
     ans.classList.remove('correct-ans'); ans.classList.add('wrong-ans');
     addToWrong({ id: q.id, type: 'tf', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
@@ -1439,8 +1645,27 @@ function startQuiz() {
 
   if (pool.length === 0) { alert('请至少选择一种题型！'); return; }
 
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  quizQuestions = shuffled.slice(0, Math.min(quizCount, shuffled.length));
+  // Weighted selection: questions with higher error rate appear more often
+  const weighted = pool.map(q => {
+    const qid = q.id || (q.type === 'fill' ? `fb_0_0` : null);
+    const errRate = getErrorRate(qid);
+    return { q, weight: 1 + errRate * 4 }; // weight 1-5x
+  });
+  const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
+  const selected = [];
+  const remaining = [...weighted];
+  for (let i = 0; i < Math.min(quizCount, pool.length); i++) {
+    let r = Math.random() * remaining.reduce((s, w) => s + w.weight, 0);
+    for (let j = 0; j < remaining.length; j++) {
+      r -= remaining[j].weight;
+      if (r <= 0) {
+        selected.push(remaining[j].q);
+        remaining.splice(j, 1);
+        break;
+      }
+    }
+  }
+  quizQuestions = selected;
   quizIndex = 0;
   quizScore = 0;
   quizAnswered = [];
@@ -1604,6 +1829,11 @@ function qzSubmitFill() {
 }
 
 function qzNext(correct) {
+  const q = quizQuestions[quizIndex];
+  if (q) {
+    const qid = q.id || `qz_${quizIndex}`;
+    recordAnswer(qid, correct);
+  }
   if (correct) quizScore++;
   quizIndex++;
   quizAnswered.push(correct);
@@ -1644,6 +1874,63 @@ function resetQuiz() {
 }
 
 // ============================================================
+// DeepSeek API Integration
+// ============================================================
+function toggleSettings() {
+  const panel = document.getElementById('settingsPanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function saveDeepSeekKey() {
+  const key = document.getElementById('deepseekKeyInput').value.trim();
+  deepseekApiKey = key;
+  localStorage.setItem('mc_deepseek_key', key);
+  const status = document.getElementById('dsKeyStatus');
+  status.textContent = key ? '✅ 已保存' : '⚠️ 未设置密钥';
+  status.style.color = key ? 'var(--success)' : 'var(--warning)';
+  setTimeout(() => { status.textContent = ''; }, 3000);
+}
+
+async function callDeepSeek(prompt) {
+  if (!deepseekApiKey) {
+    alert('请先设置 DeepSeek API 密钥（点击标题旁的 ⚙️ 按钮）');
+    return null;
+  }
+  try {
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: '你是一位微机原理助教，批改学生的答案。请判断对错、给出正确答案和详细解析。回答格式：{"correct": true/false, "answer": "正确答案", "explanation": "解析内容"}' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.1,
+        max_tokens: 512
+      })
+    });
+    const data = await resp.json();
+    if (data.error) { alert('API 错误: ' + data.error.message); return null; }
+    const content = data.choices?.[0]?.message?.content || '';
+    try {
+      return JSON.parse(content.replace(/```json/g,'').replace(/```/g,'').trim());
+    } catch(e) {
+      // Return raw text if not JSON
+      return { correct: null, answer: '', explanation: content };
+    }
+  } catch(e) {
+    alert('网络错误: ' + e.message);
+    return null;
+  }
+}
+
+// Store user selections for new questions grading
+let newqChoices = {};
+let newqTF = {};
+let newqData = {}; // question data for grading
+
+// ============================================================
 // NEW QUESTIONS
 // ============================================================
 function selectGenType(type) {
@@ -1669,46 +1956,240 @@ function generateNewQuestions() {
   const selected = pool.slice(0, 10);
   if (selected.length === 0) { container.innerHTML = '<div class="card" style="padding:20px;text-align:center;">请选择题型后生成。</div>'; return; }
 
-  let html = `<div style="margin-top:16px;"><h3 style="margin-bottom:12px;">🔨 生成的新题（${selected.length}题）</h3></div>`;
+  const genId = Date.now();
+  newqData = {};
+  newqChoices = {};
+  newqTF = {};
+
+  let html = `<div style="margin-top:16px;"><h3 style="margin-bottom:12px;">🔨 生成的新题（${selected.length}题）</h3>
+    <p style="font-size:12px;color:var(--text-light);margin-bottom:12px;">选择/输入答案后点击"DeepSeek批改"获取批改和解析，答错自动加入错题本</p>
+  </div>`;
+
   selected.forEach((q, i) => {
+    const nid = `ng_${genId}_${i}`;
+    const qText = q.question || q.text || '';
+    newqData[nid] = { type: q.type, question: qText, tag: q.tag || '', blanks: q.blanks, answer: q.answer, options: q.options, explanation: q.explanation };
+
     html += `<div class="card"><div class="q-card">`;
+
     if (q.type === 'choice') {
       html += `<div class="q-number">${i+1}. 选择题 <span class="tag tag-${q.tag}">${q.tag}</span></div>
-        <div class="q-text">${q.question}</div>
-        <div class="q-options">${q.options.map((o, oi) => `<div class="q-option" onclick="this.classList.toggle('selected')">${o}</div>`).join('')}</div>
+        <div class="q-text">${qText}</div>
+        <div class="q-options" id="${nid}_opts">
+          ${q.options.map((o, oi) => `<div class="q-option" onclick="newqSelectChoice('${nid}',${oi})">${o}</div>`).join('')}
+        </div>
         <div class="q-actions">
-          <button class="btn-check" onclick="this.nextElementSibling.classList.toggle('show');this.style.display='none'">查看答案</button>
-          <div class="q-answer correct-ans" style="display:none"><span class="label">答案：</span>${String.fromCharCode(65+q.answer)}. ${q.explanation}</div>
-        </div>`;
+          <button class="btn-check" onclick="newqGradeChoice('${nid}')">🤖 DeepSeek 批改</button>
+          <button class="btn-show-answer" onclick="document.getElementById('${nid}_ans').classList.toggle('show')">查看答案</button>
+        </div>
+        <div class="q-answer correct-ans" id="${nid}_ans" style="display:none"><span class="label">答案：</span>${String.fromCharCode(65+q.answer)}. ${q.explanation}</div>
+        <div class="q-answer" id="${nid}_result"></div>`;
     } else if (q.type === 'fill') {
-      let t = q.text;
-      q.blanks.forEach((a, bi) => { t = t.replace(/_{4,}/, `<input class="fill-blank" id="ngf_${i}_${bi}" data-answer="${a}" onkeydown="if(event.key==='Enter'){const el=document.getElementById('ngf_${i}_${bi}');el.classList.remove('correct','wrong');el.classList.add(el.value.trim()==='${a}'?'correct':'wrong')}">`); });
+      let t = qText;
+      q.blanks.forEach((a, bi) => { t = t.replace(/_{4,}/, `<input class="fill-blank" id="${nid}_b${bi}" placeholder="填空${bi+1}" onkeydown="if(event.key==='Enter')newqGradeFill('${nid}')">`); });
+      const answerText = q.blanks.join('、');
       html += `<div class="q-number">${i+1}. 填空题 <span class="tag tag-${q.tag}">${q.tag}</span></div>
         <div class="q-text">${t}</div>
-        <div class="q-actions"><button class="btn-show-answer" onclick="document.getElementById('ngf_ans_${i}').classList.toggle('show')">显示答案</button>
-        <div class="q-answer correct-ans" id="ngf_ans_${i}">答案：${q.blanks.join('、')}</div></div>`;
+        <div class="q-actions">
+          <button class="btn-check" onclick="newqGradeFill('${nid}')">🤖 DeepSeek 批改</button>
+          <button class="btn-show-answer" onclick="document.getElementById('${nid}_ans').classList.toggle('show')">显示答案</button>
+        </div>
+        <div class="q-answer correct-ans" id="${nid}_ans" style="display:none">答案：${answerText}</div>
+        <div class="q-answer" id="${nid}_result"></div>`;
     } else if (q.type === 'tf') {
       html += `<div class="q-number">${i+1}. 判断题 <span class="tag tag-${q.tag}">${q.tag}</span></div>
-        <div class="q-text">${q.question}</div>
-        <div class="q-options"><div class="q-option" onclick="this.classList.toggle('selected')">✓ 正确</div><div class="q-option" onclick="this.classList.toggle('selected')">✗ 错误</div></div>
-        <div class="q-actions"><button class="btn-check" onclick="this.nextElementSibling.classList.toggle('show')">查看答案</button>
-        <div class="q-answer correct-ans" style="display:none"><span class="label">答案：</span>${q.answer?'正确 ✓':'错误 ✗'}<br>${q.explanation}</div></div>`;
+        <div class="q-text">${qText}</div>
+        <div class="q-options" id="${nid}_opts">
+          <div class="q-option" onclick="newqSelectTF('${nid}',true)">✓ 正确</div>
+          <div class="q-option" onclick="newqSelectTF('${nid}',false)">✗ 错误</div>
+        </div>
+        <div class="q-actions">
+          <button class="btn-check" onclick="newqGradeTF('${nid}')">🤖 DeepSeek 批改</button>
+          <button class="btn-show-answer" onclick="document.getElementById('${nid}_ans').classList.toggle('show')">查看答案</button>
+        </div>
+        <div class="q-answer correct-ans" id="${nid}_ans" style="display:none"><span class="label">答案：</span>${q.answer?'正确 ✓':'错误 ✗'}<br>${q.explanation}</div>
+        <div class="q-answer" id="${nid}_result"></div>`;
     } else {
-      html += `<div class="q-number">${i+1}. 编程题</div>
-        <div class="q-text">${q.question}</div>
-        <div class="q-actions"><button class="btn-show-answer" onclick="document.getElementById('ngp_ans_${i}').classList.toggle('show')">显示答案</button>
-        <div class="q-answer correct-ans" id="ngp_ans_${i}">${q.answer}</div></div>`;
+      html += `<div class="q-number">${i+1}. 编程/综合题</div>
+        <div class="q-text">${qText}</div>
+        <textarea id="${nid}_input" placeholder="在此输入你的答案..." style="width:100%;min-height:80px;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:8px;resize:vertical;"></textarea>
+        <div class="q-actions">
+          <button class="btn-check" onclick="newqGradeProg('${nid}')">🤖 DeepSeek 批改</button>
+          <button class="btn-show-answer" onclick="document.getElementById('${nid}_ans').classList.toggle('show')">显示答案</button>
+        </div>
+        <div class="q-answer correct-ans" id="${nid}_ans" style="display:none">${q.answer}</div>
+        <div class="q-answer" id="${nid}_result"></div>`;
     }
+
     html += `</div></div>`;
   });
   container.innerHTML = html;
+}
+
+function newqSelectChoice(nid, oi) {
+  document.querySelectorAll(`#${nid}_opts .q-option`).forEach(el => el.classList.remove('selected'));
+  document.querySelector(`#${nid}_opts .q-option:nth-child(${oi+1})`).classList.add('selected');
+  newqChoices[nid] = oi;
+}
+
+function newqSelectTF(nid, val) {
+  document.querySelectorAll(`#${nid}_opts .q-option`).forEach(el => el.classList.remove('selected'));
+  document.querySelector(`#${nid}_opts .q-option:nth-child(${val?1:2})`).classList.add('selected');
+  newqTF[nid] = val;
+}
+
+async function newqGradeChoice(nid) {
+  const d = newqData[nid];
+  if (!d) return;
+  const sel = newqChoices[nid];
+  if (sel === undefined) { alert('请先选择一个选项！'); return; }
+  const userAns = String.fromCharCode(65 + sel);
+  const prompt = `题目：${d.question}\n选项：${d.options.map((o,i) => `${String.fromCharCode(65+i)}. ${o}`).join('\n')}\n学生答案：${userAns}\n请判断对错并给出解析。`;
+  const result = document.getElementById(`${nid}_result`);
+  result.innerHTML = '<span style="color:var(--text-light);">AI 批改中...</span>';
+  result.classList.add('show');
+
+  const data = await callDeepSeek(prompt);
+  if (!data) { result.innerHTML = ''; result.classList.remove('show'); return; }
+
+  const correct = data.correct;
+  const correctAnswer = data.answer || '';
+  const explanation = data.explanation || '';
+
+  result.classList.remove('correct-ans', 'wrong-ans');
+  result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+  result.innerHTML = correct
+    ? `<span class="label">✅ 回答正确！</span><br>${explanation}`
+    : `<span class="label">❌ 回答错误</span><br>正确答案：${correctAnswer}<br>${explanation}`;
+
+  if (!correct) {
+    addToWrong({ id: nid, type: 'choice', question: d.question, tag: d.tag, explanation: `正确答案：${correctAnswer}。${explanation}` });
+  }
+  recordAnswer(nid, correct);
+}
+
+async function newqGradeFill(nid) {
+  const d = newqData[nid];
+  if (!d) return;
+  const blanks = [];
+  let idx = 0;
+  while (document.getElementById(`${nid}_b${idx}`)) {
+    blanks.push(document.getElementById(`${nid}_b${idx}`).value.trim());
+    idx++;
+  }
+  if (blanks.length === 0) { alert('请先填写答案！'); return; }
+  const answerText = d.blanks ? d.blanks.join('、') : '';
+  const prompt = `题目（微机原理填空题）：${d.question}\n学生答案：${blanks.join('、')}\n标准答案：${answerText}\n请判断学生答案是否与标准答案匹配（语义等价即可，轻微格式差异可以接受），给出解析。`;
+
+  const result = document.getElementById(`${nid}_result`);
+  result.innerHTML = '<span style="color:var(--text-light);">AI 批改中...</span>';
+  result.classList.add('show');
+
+  const data = await callDeepSeek(prompt);
+  if (!data) { result.innerHTML = ''; result.classList.remove('show'); return; }
+
+  const correct = data.correct;
+  const explanation = data.explanation || '';
+  const correctAnswer = data.answer || answerText;
+
+  for (let bi = 0; bi < blanks.length; bi++) {
+    const input = document.getElementById(`${nid}_b${bi}`);
+    if (input) {
+      input.classList.remove('correct', 'wrong');
+      input.classList.add(correct ? 'correct' : 'wrong');
+      input.disabled = true;
+    }
+  }
+
+  result.classList.remove('correct-ans', 'wrong-ans');
+  result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+  result.innerHTML = correct
+    ? `<span class="label">✅ 回答正确！</span><br>${explanation}`
+    : `<span class="label">❌ 回答错误</span><br>标准答案：${correctAnswer}<br>${explanation}`;
+
+  if (!correct) {
+    addToWrong({ id: nid, type: 'fill', question: d.question, tag: d.tag, explanation: `答案：${correctAnswer}。${explanation}` });
+  }
+  recordAnswer(nid, correct);
+}
+
+async function newqGradeTF(nid) {
+  const d = newqData[nid];
+  if (!d) return;
+  const sel = newqTF[nid];
+  if (sel === undefined) { alert('请先选择正确还是错误！'); return; }
+  const answer = sel ? '正确' : '错误';
+  const prompt = `题目（判断题）：${d.question}\n学生答案：${answer}\n请判断对错并给出解析。`;
+
+  const result = document.getElementById(`${nid}_result`);
+  result.innerHTML = '<span style="color:var(--text-light);">AI 批改中...</span>';
+  result.classList.add('show');
+
+  const data = await callDeepSeek(prompt);
+  if (!data) { result.innerHTML = ''; result.classList.remove('show'); return; }
+
+  const correct = data.correct;
+  const explanation = data.explanation || '';
+  const correctAns = data.answer || '';
+
+  result.classList.remove('correct-ans', 'wrong-ans');
+  result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+  result.innerHTML = correct
+    ? `<span class="label">✅ 回答正确！</span><br>${explanation}`
+    : `<span class="label">❌ 回答错误</span><br>正确答案：${correctAns}<br>${explanation}`;
+
+  if (!correct) {
+    addToWrong({ id: nid, type: 'tf', question: d.question, tag: d.tag, explanation: `正确答案：${correctAns}。${explanation}` });
+  }
+  recordAnswer(nid, correct);
+}
+
+async function newqGradeProg(nid) {
+  const d = newqData[nid];
+  if (!d) return;
+  const input = document.getElementById(`${nid}_input`);
+  if (!input || !input.value.trim()) { alert('请先输入你的答案！'); return; }
+  const prompt = `题目（编程/简答题）：${d.question}\n学生答案：${input.value.trim()}\n请批改，判断是否正确，给出正确答案（如果有）和详细解析。`;
+
+  const result = document.getElementById(`${nid}_result`);
+  result.innerHTML = '<span style="color:var(--text-light);">AI 批改中...</span>';
+  result.classList.add('show');
+
+  const data = await callDeepSeek(prompt);
+  if (!data) { result.innerHTML = ''; result.classList.remove('show'); return; }
+
+  const correct = data.correct;
+  const explanation = data.explanation || '';
+  const correctAns = data.answer || '';
+
+  result.classList.remove('correct-ans', 'wrong-ans');
+  result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+  result.innerHTML = correct
+    ? `<span class="label">✅ 回答正确！</span><br>${explanation}`
+    : `<span class="label">❌ 回答错误</span><br>${correctAns ? '正确答案：' + correctAns + '<br>' : ''}${explanation}`;
+
+  if (!correct) {
+    addToWrong({ id: nid, type: 'prog', question: d.question, tag: d.tag, explanation: `${correctAns ? '答案：' + correctAns + '。' : ''}${explanation}` });
+  }
+  recordAnswer(nid, correct);
 }
 
 // ============================================================
 // INIT
 // ============================================================
 loadWrongQuestions();
+loadAnswerStats();
+loadWrongCorrectCount();
 setQuizCount(10);
+
+// Check for updates on load (with delay to not block rendering)
+setTimeout(checkForUpdate, 3000);
+
+// Show DeepSeek key status hint in settings if key is empty
+if (!deepseekApiKey && document.getElementById('dsKeyStatus')) {
+  document.getElementById('dsKeyStatus').textContent = '⚠️ 未设置密钥，新题无法AI批改';
+  document.getElementById('dsKeyStatus').style.color = 'var(--warning)';
+}
 </script>
 </body>
 </html>
