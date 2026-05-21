@@ -853,7 +853,14 @@ const GENERATED_POOL = {
     { question: "将AL的低4位清零，高4位保持不变，用3条指令完成。", tag: "asm", answer: "AND AL, 0F0H<br>HLT" },
     { question: "将AX和CX的内容互换，用3条指令完成（可用XCHG）。", tag: "asm", answer: "XCHG AX, CX<br>HLT" },
     { question: "从端口80H读入字节，加1后写回，最后HLT。", tag: "asm", answer: "IN AL, 80H<br>INC AL<br>OUT 80H, AL<br>HLT" },
-    { question: "8253基址40H，计数器2，方式3，CLK=1MHz，输出500Hz，二进制，先低后高。写出初始化程序。", tag: "8253", answer: "; N=1MHz÷500Hz=2000=07D0H<br>; 控制字=10 11 011 0=B6H<br>MOV AL, 0B6H<br>OUT 43H, AL<br>MOV AX, 2000<br>OUT 42H, AL<br>MOV AL, AH<br>OUT 42H, AL<br>HLT" }
+    { question: "8253基址40H，计数器2，方式3，CLK=1MHz，输出500Hz，二进制，先低后高。写出初始化程序。", tag: "8253", answer: "; N=1MHz÷500Hz=2000=07D0H<br>; 控制字=10 11 011 0=B6H<br>MOV AL, 0B6H<br>OUT 43H, AL<br>MOV AX, 2000<br>OUT 42H, AL<br>MOV AL, AH<br>OUT 42H, AL<br>HLT" },
+    { question: "8253基址40H，计数器0，方式2，CLK=1MHz，输出1KHz，二进制，只写低8位。写出初始化程序。", tag: "8253", answer: "; N=1MHz÷1KHz=1000=03E8H，只写低8位→E8H=232<br>; 控制字=00 01 010 0=14H<br>MOV AL, 14H<br>OUT 43H, AL<br>MOV AL, 0E8H<br>OUT 40H, AL<br>HLT" },
+    { question: "8253基址40H，计数器1，方式0，CLK=1MHz，计数2000个脉冲后中断，BCD计数，只写高8位。写出初始化程序。", tag: "8253", answer: "; N=2000，只写高8位→20H<br>; BCD计数→D0=1，控制字=01 10 000 1=61H<br>MOV AL, 61H<br>OUT 43H, AL<br>MOV AL, 20H<br>OUT 41H, AL<br>HLT" },
+    { question: "8253基址40H，计数器0，方式3，CLK=2MHz，输出4KHz方波，BCD计数，先低后高。写出初始化程序。", tag: "8253", answer: "; N=2MHz÷4KHz=500<br>; BCD计数，控制字=00 11 011 1=37H<br>MOV AL, 37H<br>OUT 43H, AL<br>MOV AX, 500<br>OUT 40H, AL<br>MOV AL, AH<br>OUT 40H, AL<br>HLT" },
+    { question: "系统用2片8K×8位SRAM扩展存储器，74LS138译码，G1=1,G2A=G2B=0。第1片Y0，第2片Y1。(1)每片容量？(2)第1片地址范围？(3)第2片地址范围？", tag: "mem", answer: "(1) 每片8KB<br>(2) Y0→00000H~01FFFH<br>(3) Y1→02000H~03FFFH" },
+    { question: "系统用4片16K×8位ROM，首地址E0000H，地址连续。(1)每片需多少根片内地址线？(2)4片总容量？(3)第1片地址范围？(4)最后一片末地址？", tag: "mem", answer: "(1) 14根(A13~A0)<br>(2) 64KB<br>(3) E0000H~E3FFFH<br>(4) EFFFFH" },
+    { question: "8255基址60H，A口方式0输出，B口方式0输入，C口上半部输出下半部输入。写出方式控制字。", tag: "8255", answer: "; 控制字D7=1, A组方式0=00, A口输出=0, C上输出=0, B组方式0=0, B口输入=1, C下输入=1<br>; 1000 0011=83H<br>MOV AL, 83H<br>OUT 63H, AL<br>HLT" },
+    { question: "8255基址300H，PC5置1。写出控制字和程序。", tag: "8255", answer: "; C口位控制字D7=0, 位选=101(PC5), 置1=1<br>; 0000 1011=0BH<br>MOV AL, 0BH<br>MOV DX, 303H<br>OUT DX, AL<br>HLT" }
   ]
 };
 
