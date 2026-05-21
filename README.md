@@ -16,13 +16,13 @@
 
 ## 截图
 
-| 笔记背诵 | 刷题模式 | 模拟考试 |
+| 空闲教室 | 笔记背诵 | 刷题模式 |
 |:---:|:---:|:---:|
-| ![笔记背诵](screenshots/1.jpg) | ![刷题模式](screenshots/2.jpg) | ![模拟考试](screenshots/3.jpg) |
+| ![空闲教室](screenshots/1.jpg) | ![笔记背诵](screenshots/2.jpg) | ![刷题模式](screenshots/3.jpg) |
 
-| 新题生成 | 错题本 | 空闲教室 |
+| 模拟考试 | 新题生成 | 错题本 |
 |:---:|:---:|:---:|
-| ![新题生成](screenshots/4.jpg) | ![错题本](screenshots/5.jpg) | ![空闲教室](screenshots/6.jpg) |
+| ![模拟考试](screenshots/4.jpg) | ![新题生成](screenshots/5.jpg) | ![错题本](screenshots/6.jpg) |
 
 ## 技术栈
 
