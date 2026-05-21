@@ -795,7 +795,7 @@ let wrongCorrectCount = {};
 let deepseekApiKey = localStorage.getItem('mc_deepseek_key') || '';
 
 // App version for update checking
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const GITHUB_REPO = 'jiechuan1011/mcu-review-app';
 let ignoredVersion = localStorage.getItem('mc_ignored_version') || '';
 
@@ -1096,11 +1096,27 @@ function renderWrongQuizQuestion() {
     </div>
     <div style="margin-bottom:8px;"><button class="btn-check" onclick="wqzSubmitTF()">提交</button></div>
     <div class="q-answer" id="wqzResult">${q.explanation ? `<span class="label">解析：</span>${q.explanation}` : ''}</div>`;
+  } else if (q.type === 'fill') {
+    let fillText = q.question || q.text || '';
+    let fi = 0;
+    fillText = fillText.replace(/_{4,}/g, () => `<input class="fill-blank" id="wqf_${wrongQuizIndex}_${fi++}" placeholder="填空" onkeydown="if(event.key==='Enter')wqzSubmitFill()" style="width:80px;">`);
+    html += `<div style="margin:10px 0;line-height:2.5;">${fillText}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn-check" onclick="wqzSubmitFill()">提交</button>
+        <button class="btn-show-answer" onclick="wqzShowFillAns()" style="font-size:12px;">显示答案</button>
+      </div>
+      <div class="q-answer" id="wqzFillResult"></div>`;
   } else {
-    html += `<div style="display:flex;gap:8px;">
-      <button class="btn-correct" onclick="wqzNext(true)">✓ 答对了</button>
-      <button class="btn-wrong" onclick="wqzNext(false)">✗ 还是不会</button>
-    </div>`;
+    html += `<textarea id="wqzProgInput" placeholder="在此输入你的答案..." style="width:100%;min-height:80px;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:8px;resize:vertical;"></textarea>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn-check" onclick="wqzSubmitProg()">提交</button>
+        <button class="btn-show-answer" onclick="wqzShowProgAns()" style="font-size:12px;">显示答案</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn-correct" onclick="wqzNext(true)">✓ 会了</button>
+        <button class="btn-wrong" onclick="wqzNext(false)" style="background:var(--wrong);color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">✗ 不会</button>
+      </div>
+      <div class="q-answer" id="wqzProgResult"></div>`;
   }
 
   html += `</div></div>
@@ -1125,6 +1141,7 @@ function wqzSubmitChoice() {
   const q = wrongQuizQuestions[wrongQuizIndex];
   if (wqzChoice === null) { alert('请先选择！'); return; }
   const correct = wqzChoice === q.answer;
+  wrongQuizLastCorrect = correct;
   document.querySelectorAll('[data-wqz]').forEach(el => {
     const oi = parseInt(el.dataset.wqz);
     el.classList.remove('correct', 'wrong');
@@ -1134,14 +1151,18 @@ function wqzSubmitChoice() {
   });
   const result = document.getElementById('wqzResult');
   result.classList.add('show');
+  result.classList.remove('correct-ans', 'wrong-ans');
   result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+  const cc = (wrongCorrectCount[q.id] || 0) + 1;
   if (correct) {
-    const cc = (wrongCorrectCount[q.id] || 0) + 1;
     result.innerHTML = `<span class="label">✅ 回答正确！已正确${cc}/3次</span>`;
   } else {
-    result.innerHTML = `<span class="label">❌ 再想想</span><br>${q.explanation || ''}`;
+    result.innerHTML = `<span class="label">❌ 回答错误</span><br>${q.explanation || ''}`;
   }
-  setTimeout(() => wqzNext(correct), 1500);
+  result.innerHTML += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+    <button class="btn-check" onclick="wqzExplain()">🤖 AI 讲解</button>
+    <button class="btn-show-answer" onclick="wqzNext(${correct})" style="font-size:12px;">下一题 →</button>
+  </div>`;
 }
 
 function wqzSelectTF(val) {
@@ -1155,6 +1176,7 @@ function wqzSubmitTF() {
   if (wqzTF === null) { alert('请先选择！'); return; }
   const val = wqzTF === 'true';
   const correct = val === q.answer;
+  wrongQuizLastCorrect = correct;
   document.querySelectorAll('[data-wqzf]').forEach(el => {
     const v = el.dataset.wqzf === 'true';
     el.classList.remove('correct', 'wrong');
@@ -1164,14 +1186,124 @@ function wqzSubmitTF() {
   });
   const result = document.getElementById('wqzResult');
   result.classList.add('show');
+  result.classList.remove('correct-ans', 'wrong-ans');
   result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+  const cc = (wrongCorrectCount[q.id] || 0) + 1;
   if (correct) {
-    const cc = (wrongCorrectCount[q.id] || 0) + 1;
     result.innerHTML = `<span class="label">✅ 正确！已正确${cc}/3次</span>`;
   } else {
     result.innerHTML = `<span class="label">❌ 错误</span><br>${q.explanation || ''}`;
   }
-  setTimeout(() => wqzNext(correct), 1500);
+  result.innerHTML += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+    <button class="btn-check" onclick="wqzExplain()">🤖 AI 讲解</button>
+    <button class="btn-show-answer" onclick="wqzNext(${correct})" style="font-size:12px;">下一题 →</button>
+  </div>`;
+}
+
+function wqzSubmitFill() {
+  const q = wrongQuizQuestions[wrongQuizIndex];
+  if (!q) return;
+  const inputs = [];
+  let idx = 0;
+  while (document.getElementById(`wqf_${wrongQuizIndex}_${idx}`)) {
+    inputs.push(document.getElementById(`wqf_${wrongQuizIndex}_${idx}`).value.trim());
+    idx++;
+  }
+  if (inputs.length === 0 || inputs.some(v => !v)) { alert('请填写所有填空！'); return; }
+
+  // 本地批改：从 explanation 提取标准答案做比较
+  const ansMatch = q.explanation && q.explanation.match(/[答案|正确答案][：:]\s*([^。；。]+)/);
+  const stdAnswer = ansMatch ? ansMatch[1].trim() : '';
+  const userAnswer = inputs.join('、');
+  const correct = stdAnswer && userAnswer.replace(/\s+/g, '') === stdAnswer.replace(/\s+/g, '');
+
+  const result = document.getElementById('wqzFillResult');
+  result.classList.add('show');
+  result.classList.remove('correct-ans', 'wrong-ans');
+  result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+
+  for (let i = 0; i < idx; i++) {
+    const el = document.getElementById(`wqf_${wrongQuizIndex}_${i}`);
+    if (el) { el.classList.remove('correct', 'wrong'); el.classList.add(correct ? 'correct' : 'wrong'); el.disabled = true; }
+  }
+
+  result.innerHTML = correct
+    ? `<span class="label">✅ 回答正确！</span>`
+    : `<span class="label">❌ 回答错误</span><br>标准答案：${stdAnswer || '(未找到)'}`;
+  result.innerHTML += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+    <button class="btn-check" onclick="wqzExplain()">🤖 AI 讲解</button>
+    <button class="btn-show-answer" onclick="wqzNext(${correct})" style="font-size:12px;">下一题 →</button>
+  </div>`;
+  wrongQuizLastCorrect = correct;
+}
+
+function wqzShowFillAns() {
+  const q = wrongQuizQuestions[wrongQuizIndex];
+  const ansMatch = q.explanation && q.explanation.match(/[答案|正确答案][：:]\s*([^。；。]+)/);
+  alert('答案：' + (ansMatch ? ansMatch[1] : q.explanation || '无'));
+}
+
+function wqzSubmitProg() {
+  const q = wrongQuizQuestions[wrongQuizIndex];
+  if (!q) return;
+  const input = document.getElementById('wqzProgInput');
+  if (!input || !input.value.trim()) { alert('请先输入你的答案！'); return; }
+
+  // 本地简单批改（去除空白后比较）
+  const userAns = input.value.trim().replace(/\s+/g, '');
+  const stdAns = (q.explanation || q.answer || '').replace(/\s+/g, '');
+  const correct = stdAns && userAns.toLowerCase() === stdAns.toLowerCase();
+
+  const result = document.getElementById('wqzProgResult');
+  result.classList.add('show');
+  result.classList.remove('correct-ans', 'wrong-ans');
+  result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+  result.innerHTML = correct
+    ? `<span class="label">✅ 回答正确！</span>`
+    : `<span class="label">❌ 回答错误</span><br>${q.explanation ? '参考答案：' + (q.answer || q.explanation) : ''}`;
+  result.innerHTML += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+    <button class="btn-check" onclick="wqzExplain()">🤖 AI 讲解</button>
+    <button class="btn-show-answer" onclick="wqzNext(${correct})" style="font-size:12px;">下一题 →</button>
+  </div>`;
+  wrongQuizLastCorrect = correct;
+}
+
+function wqzShowProgAns() {
+  const q = wrongQuizQuestions[wrongQuizIndex];
+  alert('参考答案：\n' + (q.answer || q.explanation || '无'));
+}
+
+let wrongQuizLastCorrect = false;
+
+async function wqzExplain() {
+  const q = wrongQuizQuestions[wrongQuizIndex];
+  if (!q) return;
+  let prompt = '';
+  if (q.type === 'choice' && q.options) {
+    const selText = document.querySelector('[data-wqz].selected')?.textContent?.trim() || '';
+    const correctIdx = q.answer;
+    prompt = `题目：${q.question}\n选项：${q.options.map((o,i) => String.fromCharCode(65+i)+'. '+o).join('\n')}\n正确答案：${String.fromCharCode(65+correctIdx)}. ${q.options[correctIdx]}\n请详细讲解为什么这个答案是对的。`;
+  } else if (q.type === 'tf') {
+    prompt = `题目：${q.question}\n正确答案：${q.answer ? '正确' : '错误'}\n请详细讲解为什么是${q.answer ? '正确' : '错误'}的。`;
+  } else if (q.type === 'fill') {
+    const ansMatch = q.explanation && q.explanation.match(/[答案|正确答案][：:]\s*([^。；。]+)/);
+    prompt = `题目：${q.question}\n正确答案：${ansMatch ? ansMatch[1] : (q.explanation || '')}\n请详细讲解这道填空题的知识点。`;
+  } else {
+    prompt = `题目：${q.question}\n参考答案：${q.answer || q.explanation || ''}\n请详细讲解这道题的知识点和解题思路。`;
+  }
+
+  let resultId = 'wqzResult';
+  if (q.type === 'fill') resultId = 'wqzFillResult';
+  else if (q.type !== 'choice' && q.type !== 'tf') resultId = 'wqzProgResult';
+  const result = document.getElementById(resultId);
+  const prevHtml = result.innerHTML;
+  result.innerHTML = prevHtml + '<div style="margin-top:6px;"><span style="color:var(--text-light);">AI 讲解中...</span></div>';
+
+  const data = await callDeepSeek(`你是微机原理助教，请给学生讲解以下题目。不要判断对错，只负责讲解知识点和解题思路。\n\n${prompt}\n\n用自然的中文讲解，200字以内。不要回复JSON，直接输出讲解内容。`);
+  if (data) {
+    result.innerHTML = prevHtml + `<div style="margin-top:8px;font-size:14px;line-height:1.7;">💡 ${data.explanation || (typeof data === 'string' ? data : '')}</div>`;
+  }
+  result.innerHTML += `<div style="margin-top:8px;"><button class="btn-show-answer" onclick="wqzNext(${wrongQuizLastCorrect})">下一题 →</button></div>`;
 }
 
 function wqzNext(correct) {
@@ -1522,7 +1654,7 @@ function checkChoice(i) {
   if (correct) { ans.classList.remove('wrong-ans'); ans.classList.add('correct-ans'); }
   else {
     ans.classList.remove('correct-ans'); ans.classList.add('wrong-ans');
-    addToWrong({ id: q.id, type: 'choice', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
+    addToWrong({ id: q.id, type: 'choice', question: q.question, tag: q.tag, options: q.options, explanation: q.explanation, answer: q.answer });
     const btn = document.getElementById('add_c' + i);
     if (btn) { btn.textContent = '✓ 已加入'; btn.classList.add('btn-added-wrong'); }
   }
@@ -1530,7 +1662,7 @@ function checkChoice(i) {
 
 function addChoiceToWrong(i) {
   const q = QUESTIONS.choice[i];
-  addToWrong({ id: q.id, type: 'choice', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
+  addToWrong({ id: q.id, type: 'choice', question: q.question, tag: q.tag, options: q.options, explanation: q.explanation, answer: q.answer });
   const btn = document.getElementById('add_c' + i);
   if (btn) { btn.textContent = '✓ 已加入'; btn.classList.add('btn-added-wrong'); }
 }
@@ -1780,7 +1912,7 @@ function qzSubmitChoice() {
   ans.classList.add('show');
   ans.classList.add(correct ? 'correct-ans' : 'wrong-ans');
   ans.innerHTML = `<span class="label">${correct ? '✅ 正确！' : '❌ 错误'}</span><br>${q.explanation}`;
-  if (!correct && q.id) addToWrong({ id: q.id, type: 'choice', question: q.question, tag: q.tag, explanation: q.explanation, answer: q.answer });
+  if (!correct && q.id) addToWrong({ id: q.id, type: 'choice', question: q.question, tag: q.tag, options: q.options, explanation: q.explanation, answer: q.answer });
   setTimeout(() => qzNext(correct), 1500);
 }
 
@@ -2043,29 +2175,64 @@ async function newqGradeChoice(nid) {
   if (!d) return;
   const sel = newqChoices[nid];
   if (sel === undefined) { alert('请先选择一个选项！'); return; }
-  const userAns = String.fromCharCode(65 + sel);
-  const prompt = `题目：${d.question}\n选项：${d.options.map((o,i) => `${String.fromCharCode(65+i)}. ${o}`).join('\n')}\n学生答案：${userAns}\n请判断对错并给出解析。`;
+  const userLetter = String.fromCharCode(65 + sel);
+  const userText = d.options[sel].replace(/^[A-Z]\.\s*/, '');
+  const correctLetter = String.fromCharCode(65 + d.answer);
+  const correctText = d.options[d.answer].replace(/^[A-Z]\.\s*/, '');
+  const isCorrect = sel === d.answer;
+
   const result = document.getElementById(`${nid}_result`);
-  result.innerHTML = '<span style="color:var(--text-light);">AI 批改中...</span>';
+  result.innerHTML = '<span style="color:var(--text-light);">AI 讲解中...</span>';
   result.classList.add('show');
 
-  const data = await callDeepSeek(prompt);
-  if (!data) { result.innerHTML = ''; result.classList.remove('show'); return; }
-
-  const correct = data.correct;
-  const correctAnswer = data.answer || '';
-  const explanation = data.explanation || '';
-
-  result.classList.remove('correct-ans', 'wrong-ans');
-  result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
-  result.innerHTML = correct
-    ? `<span class="label">✅ 回答正确！</span><br>${explanation}`
-    : `<span class="label">❌ 回答错误</span><br>正确答案：${correctAnswer}<br>${explanation}`;
-
-  if (!correct) {
-    addToWrong({ id: nid, type: 'choice', question: d.question, tag: d.tag, explanation: `正确答案：${correctAnswer}。${explanation}` });
+  // 用本地答案做可靠批改，DeepSeek 负责对比讲解两个选项
+  if (isCorrect) {
+    result.classList.remove('correct-ans', 'wrong-ans');
+    result.classList.add('correct-ans');
+    result.innerHTML = `<span class="label">✅ 回答正确！</span><br>`;
+  } else {
+    result.classList.remove('correct-ans', 'wrong-ans');
+    result.classList.add('wrong-ans');
+    result.innerHTML = `<span class="label">❌ 回答错误！</span><br>正确答案：${correctLetter}. ${correctText}<br>`;
   }
-  recordAnswer(nid, correct);
+
+  // 调用 DeepSeek 对比讲解两个选项
+  const prompt = `你是微机原理助教，请对比讲解以下选择题中学生选的选项和正确答案。
+
+题目：${d.question}
+选项：
+${d.options.map((o,i) => `${String.fromCharCode(65+i)}. ${o.replace(/^[A-Z]\.\s*/, '')}`).join('\n')}
+
+学生选了【${userLetter}】：${userText}
+正确答案是【${correctLetter}】：${correctText}
+
+请分两部分：
+1. 解释为什么正确答案${correctLetter}是对的（涉及什么知识点、计算过程等）
+2. 分析学生选的${userLetter}为什么${isCorrect ? '也是对的（从另一个角度理解），或者有其他需要注意的点' : '不对（常见的错误理解是什么，正确的思路应该是什么）'}
+
+用自然的中文讲解，控制在200字以内。不要回复JSON，直接输出讲解内容。`;
+
+  const data = await callDeepSeek(prompt);
+  if (data) {
+    const explanation = data.explanation || (typeof data === 'string' ? data : '');
+    result.innerHTML += explanation ? `<div style="margin-top:8px;font-size:14px;line-height:1.7;">💡 <b>讲解：</b>${explanation}</div>` : '';
+  }
+
+  // 补上本地解析作为参考
+  if (d.explanation) {
+    result.innerHTML += `<div style="margin-top:6px;font-size:13px;color:var(--text-light);">📖 <b>参考：</b>${d.explanation}</div>`;
+  }
+
+  // 自动显示答案参考区
+  const ansDiv = document.getElementById(`${nid}_ans`);
+  if (ansDiv && ansDiv.style.display === 'none') {
+    ansDiv.style.display = 'block';
+  }
+
+  if (!isCorrect) {
+    addToWrong({ id: nid, type: 'choice', question: d.question, tag: d.tag, options: d.options, answer: d.answer, explanation: `正确答案：${correctLetter}. ${correctText}。${d.explanation || ''}` });
+  }
+  recordAnswer(nid, isCorrect);
 }
 
 async function newqGradeFill(nid) {
@@ -2139,7 +2306,7 @@ async function newqGradeTF(nid) {
     : `<span class="label">❌ 回答错误</span><br>正确答案：${correctAns}<br>${explanation}`;
 
   if (!correct) {
-    addToWrong({ id: nid, type: 'tf', question: d.question, tag: d.tag, explanation: `正确答案：${correctAns}。${explanation}` });
+    addToWrong({ id: nid, type: 'tf', question: d.question, tag: d.tag, answer: d.answer, explanation: `正确答案：${correctAns}。${explanation}` });
   }
   recordAnswer(nid, correct);
 }
