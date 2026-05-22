@@ -261,6 +261,34 @@ main.active { display: block; }
 .tag-choice { background: #dbeafe; color: #1d4ed8; }
 .tag-tf { background: #fce7f3; color: #be185d; }
 .tag-prog { background: #d1fae5; color: #047857; }
+.tag-mem { background: #fef3c7; color: #b45309; }
+
+/* Memory expansion question sub-question layout */
+.mem-circuit-desc {
+  background:#f8fafc;border:1px solid var(--border);border-radius:8px;
+  padding:14px;font-size:13px;line-height:1.8;margin-bottom:14px;
+  font-family:'Cascadia Code','Consolas',monospace;white-space:pre-wrap;
+}
+.mem-subq { margin-bottom:14px;padding:12px;background:#fafbfc;border-radius:8px;border:1px solid #f0f0f0; }
+.mem-subq-label { font-weight:700;font-size:13px;color:var(--primary);margin-bottom:6px; }
+.mem-subq-text { font-size:14px;line-height:1.7;margin-bottom:8px; }
+.mem-subq-options { display:flex;flex-direction:column;gap:6px; }
+.mem-subq-option {
+  padding:8px 14px;border:2px solid var(--border);border-radius:8px;
+  cursor:pointer;font-size:13px;transition:var(--transition);
+}
+.mem-subq-option:hover { border-color:#94a3b8;background:#fafbfc; }
+.mem-subq-option.selected { border-color:var(--primary);background:var(--primary-light); }
+.mem-subq-option.correct { border-color:var(--success);background:var(--success-light); }
+.mem-subq-option.wrong { border-color:var(--danger);background:var(--danger-light); }
+.mem-fill-blank { display:inline-block;min-width:70px;border:none;border-bottom:2.5px solid #cbd5e1;padding:2px 6px;font-size:14px;outline:none;transition:border-color .2s;font-family:inherit; }
+.mem-fill-blank:focus { border-bottom-color:var(--primary); }
+.mem-fill-blank.correct { border-bottom-color:var(--success);background:var(--success-light); }
+.mem-fill-blank.wrong { border-bottom-color:var(--danger);background:var(--danger-light); }
+.mem-subq-result { font-size:12px;margin-top:6px;padding:6px 10px;border-radius:6px;display:none; }
+.mem-subq-result.show { display:block; }
+.mem-subq-result.correct { background:var(--success-light);color:var(--success); }
+.mem-subq-result.wrong { background:var(--danger-light);color:var(--danger); }
 
 /* Settings Modal */
 #settingsPanel { display:none; }
@@ -353,6 +381,7 @@ main.active { display: block; }
         <label style="font-size:14px;"><input type="checkbox" id="qzChoice" checked> 选择</label>
         <label style="font-size:14px;"><input type="checkbox" id="qzTF" checked> 判断</label>
         <label style="font-size:14px;"><input type="checkbox" id="qzProg" checked> 编程</label>
+        <label style="font-size:14px;"><input type="checkbox" id="qzMem" checked> 存储器扩展</label>
       </div>
       <div style="margin-bottom:16px;">
         <button onclick="setQuizCount(5)" class="section-select-btn" id="qc5" style="padding:8px 20px;border:2px solid var(--border);border-radius:20px;background:var(--primary-light);font-weight:600;cursor:pointer;margin:4px;">5题</button>
@@ -383,6 +412,7 @@ main.active { display: block; }
       <button onclick="selectGenType('fill')" class="section-select-btn" id="gt-fill" style="padding:8px 16px;border:2px solid var(--border);border-radius:20px;font-weight:600;cursor:pointer;">填空题</button>
       <button onclick="selectGenType('tf')" class="section-select-btn" id="gt-tf" style="padding:8px 16px;border:2px solid var(--border);border-radius:20px;font-weight:600;cursor:pointer;">判断题</button>
       <button onclick="selectGenType('prog')" class="section-select-btn" id="gt-prog" style="padding:8px 16px;border:2px solid var(--border);border-radius:20px;font-weight:600;cursor:pointer;">编程题</button>
+      <button onclick="selectGenType('mem')" class="section-select-btn" id="gt-mem" style="padding:8px 16px;border:2px solid var(--border);border-radius:20px;font-weight:600;cursor:pointer;">存储器扩展</button>
     </div>
     <button onclick="generateNewQuestions()" class="generate-btn">🔨 生成新题</button>
   </div>
@@ -819,8 +849,36 @@ const QUESTIONS = {
     { id: "comp3", question: "8253端口基地址40H（控制字端口43H）。计数器0初始化：方式2（频率发生器），CLK=2MHz，输出500Hz，二进制计数，先低后高。<br><br>(1) 计数初值N=？<br>(2) 控制字=？<br>(3) 写出完整初始化程序。", tag: "8253",
       answer: "(1) N=2MHz÷500Hz=4000=0FA0H<br>(2) 控制字=00110100B=34H<br>(3) MOV AL, 34H → OUT 43H, AL → MOV AX, 4000 → OUT 40H, AL → MOV AL, AH → OUT 40H, AL → HLT"},
     { id: "comp4", question: "8253端口地址310H~313H。用计数器2，方式0（计数结束中断），二进制，只写低8位。CLK=1MHz，计数1000个脉冲后中断。<br><br>(1) 计数初值N=？（注意只写低8位）<br>(2) 控制字=？<br>(3) 写出初始化程序。", tag: "8253",
-      answer: "(1) N=1000=03E8H，只写低8位则实际=E8H=232<br>(2) 控制字=10 01 000 0=90H<br>(3) MOV DX, 313H → MOV AL, 90H → OUT DX, AL → MOV DX, 312H → MOV AL, 0E8H → OUT DX, AL → HLT"}
-  ]
+      answer: "(1) N=1000=03E8H，只写低8位则实际=E8H=232<br>(2) 控制字=10 01 000 0=90H<br>(3) MOV DX, 313H → MOV AL, 90H → OUT DX, AL → MOV DX, 312H → MOV AL, 0E8H → OUT DX, AL → HLT"},
+  ],
+  memoryExpansion: [
+    { question: "系统用3片4K×8位SRAM芯片组成存储器。CPU地址线A19~A0共20根，数据线D7~D0。74LS138译码器连接：G1接A15，G2A=G2B=0，C接A14，B接A13，A接A12。Y0、Y1、Y2分别接3片SRAM的片选端CS。各芯片地址线A11~A0接CPU地址线A11~A0，数据线D7~D0接CPU数据总线。A19~A16接地。", tag: "mem",
+      subs: [
+        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:0, explanation:"3片4K×8芯片，数据位均为8位，只扩展字数。" },
+        { type:"fill", text:"Q2. 该系统总存储器容量为____KB。", blanks:["12"], explanation:"3片×4KB=12KB。" },
+        { type:"fill", text:"Q3. 每片SRAM的片内地址线由A11~A0共____根，片选相关的地址线为A____~A12共4根。", blanks:["12","15"], explanation:"每片4KB需12根地址线A11~A0。" },
+        { type:"fill", text:"Q4. 写出各芯片地址范围（十六进制）：\n第1片(Y0)：____H ~ ____H\n第2片(Y1)：____H ~ ____H\n第3片(Y2)：____H ~ ____H", blanks:["08000","08FFF","09000","09FFF","0A000","0AFFF"], explanation:"A15=1使G1有效，74LS138译码Y0~Y2。Y0(000):08000H~08FFFH, Y1(001):09000H~09FFFH, Y2(010):0A000H~0AFFFH。" },
+        { type:"choice", text:"Q5. 该电路是否存在地址重叠？", options:["存在重叠","不存在重叠"], answer:1, explanation:"各片选输出唯一，A19~A16固定为0，无地址重叠。" }
+      ]
+    },
+    { question: "系统用2片16K×4位SRAM芯片组成16K×8位存储器。CPU地址线A19~A0，数据线D7~D0。第1片数据线接D7~D4（高4位），第2片接D3~D0（低4位）。两片CS端相连后接74LS138的Y0输出。74LS138连接：G1接A15，G2A=G2B=0，C接A14，B接A13，A接A12。各芯片地址线A13~A0接CPU A13~A0。A19~A16接地。", tag: "mem",
+      subs: [
+        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:1, explanation:"2片16K×4扩展为16K×8，只扩展数据位宽度。" },
+        { type:"fill", text:"Q2. 该存储器系统总容量为____KB，数据总线宽度为____位。", blanks:["16","8"], explanation:"16K×8=128Kb=16KB，数据宽度8位。" },
+        { type:"fill", text:"Q3. 每片SRAM片内地址线由A____~A0共____根。", blanks:["13","14"], explanation:"16K=2^14，需14根地址线A13~A0。" },
+        { type:"fill", text:"Q4. 写出该存储器系统的地址范围：____H ~ ____H。", blanks:["08000","0BFFF"], explanation:"Y0(CBA=000)且A15=1, A19~A16=0。共16KB连续空间，地址范围08000H~0BFFFH。" },
+        { type:"choice", text:"Q5. 若将G1改为接A16（其他不变），该存储器地址范围变为？", options:["10000H~13FFFH","08000H~0BFFFH","00000H~03FFFH","18000H~1BFFFH"], answer:0, explanation:"G1改接A16后需A16=1才使能，A15不再参与译码，地址范围10000H~13FFFH。" }
+      ]
+    },
+    { question: "系统用4K×8位SRAM芯片组成20K×8位存储器。CPU地址线A19~A0，数据线D7~D0。74LS138译码器：G1接A19，G2A=G2B=0，C接A18，B接A17，A接A16。Y0~Y4分别接5片SRAM的CS端。各芯片A11~A0接A11~A0。A15~A12接地。", tag: "mem",
+      subs: [
+        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:0, explanation:"5片4K×8，扩展字数到20K×8，字扩展。" },
+        { type:"fill", text:"Q2. 系统总存储器容量为____KB。", blanks:["20"], explanation:"5×4KB=20KB。" },
+        { type:"fill", text:"Q3. 写出各芯片地址范围（每片4KB=1000H）：\nY0：____H~____H  Y1：____H~____H\nY2：____H~____H  Y3：____H~____H\nY4：____H~____H", blanks:["80000","80FFF","81000","81FFF","82000","82FFF","83000","83FFF","84000","84FFF"], explanation:"G1接A19，需A19=1。74LS138输入C=A18,B=A17,A=A16。Y0(000):80000H~80FFFH。" },
+        { type:"fill", text:"Q4. A15~A12接地后，片内实际有效地址线是A____~A0共____根。有无地址重叠？____（填有/无）", blanks:["11","12","无"], explanation:"A15~A12固定0，实际用A11~A0共12根片内地址。A15~A12虽未参与译码但固定0，无重叠。" }
+      ]
+    }
+  ],
 };
 
 // ============================================================
@@ -878,6 +936,46 @@ const GENERATED_POOL = {
     { question: "指令XCHG会影响标志位。", tag: "asm", answer: false, explanation: "XCHG不影响任何标志位。" },
     { question: "8253初始化时必须先写控制字再写计数初值。", tag: "8253", answer: true, explanation: "顺序不能颠倒。" },
     { question: "MOV AX, [BP]默认使用DS段寄存器。", tag: "8088", answer: false, explanation: "BP默认SS段。" }
+  ],
+  mem: [
+    {
+      question: "系统用3片4K×8位SRAM芯片组成存储器。CPU地址线A19~A0共20根，数据线D7~D0。74LS138译码器连接：G1接A15，G2A=G2B=0，C接A14，B接A13，A接A12。Y0、Y1、Y2分别接3片SRAM的片选端CS。各芯片地址线A11~A0接CPU地址线A11~A0，数据线D7~D0接CPU数据总线。A19~A16接地。",
+      tag: "mem",
+      subs: [
+        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:0, explanation:"3片4K×8芯片，数据位均为8位，只扩展字数。" },
+        { type:"fill", text:"Q2. 该系统总存储器容量为____KB。", blanks:["12"], explanation:"3片×4KB=12KB。" },
+        { type:"fill", text:"Q3. 每片SRAM的片内地址线由A11~A0共____根，片选相关的地址线为A____~A12共4根。", blanks:["12","15"], explanation:"每片4KB需12根地址线A11~A0。" },
+        { type:"fill", text:"Q4. 写出各芯片地址范围（十六进制）：
+第1片(Y0)：____H ~ ____H
+第2片(Y1)：____H ~ ____H
+第3片(Y2)：____H ~ ____H", blanks:["08000","08FFF","09000","09FFF","0A000","0AFFF"], explanation:"A15=1使G1有效，74LS138译码Y0~Y2。Y0(000):08000H~08FFFH, Y1(001):09000H~09FFFH, Y2(010):0A000H~0AFFFH。" },
+        { type:"choice", text:"Q5. 该电路是否存在地址重叠？", options:["存在重叠","不存在重叠"], answer:1, explanation:"各片选输出唯一，A19~A16固定为0，无地址重叠。" }
+      ]
+    },
+    {
+      question: "系统用2片16K×4位SRAM芯片组成16K×8位存储器。CPU地址线A19~A0，数据线D7~D0。第1片数据线接D7~D4（高4位），第2片接D3~D0（低4位）。两片CS端相连后接74LS138的Y0输出。74LS138连接：G1接A15，G2A=G2B=0，C接A14，B接A13，A接A12。各芯片地址线A13~A0接CPU A13~A0。A19~A16接地。",
+      tag: "mem",
+      subs: [
+        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:1, explanation:"2片16K×4扩展为16K×8，只扩展数据位宽度。" },
+        { type:"fill", text:"Q2. 该存储器系统总容量为____KB，数据总线宽度为____位。", blanks:["16","8"], explanation:"16K×8=128Kb=16KB，数据宽度8位。" },
+        { type:"fill", text:"Q3. 每片SRAM片内地址线由A____~A0共____根。", blanks:["13","14"], explanation:"16K=2^14，需14根地址线A13~A0。" },
+        { type:"fill", text:"Q4. 写出该存储器系统的地址范围：____H ~ ____H。", blanks:["08000","0BFFF"], explanation:"Y0(CBA=000)且A15=1, A19~A16=0。共16KB连续空间，地址范围08000H~0BFFFH。" },
+        { type:"choice", text:"Q5. 若将G1改为接A16（其他不变），该存储器地址范围变为？", options:["10000H~13FFFH","08000H~0BFFFH","00000H~03FFFH","18000H~1BFFFH"], answer:0, explanation:"G1改接A16后需A16=1才使能，A15不再参与译码，地址范围10000H~13FFFH。" }
+      ]
+    },
+    {
+      question: "系统用4K×8位SRAM芯片组成20K×8位存储器。CPU地址线A19~A0，数据线D7~D0。74LS138译码器：G1接A19，G2A=G2B=0，C接A18，B接A17，A接A16。Y0~Y4分别接5片SRAM的CS端。各芯片A11~A0接A11~A0。A15~A12接地。",
+      tag: "mem",
+      subs: [
+        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:0, explanation:"5片4K×8，扩展字数到20K×8，字扩展。" },
+        { type:"fill", text:"Q2. 系统总存储器容量为____KB。", blanks:["20"], explanation:"5×4KB=20KB。" },
+        { type:"fill", text:"Q3. 写出各芯片地址范围（每片4KB=1000H）：
+Y0：____H~____H  Y1：____H~____H
+Y2：____H~____H  Y3：____H~____H
+Y4：____H~____H", blanks:["80000","80FFF","81000","81FFF","82000","82FFF","83000","83FFF","84000","84FFF"], explanation:"G1接A19，需A19=1。74LS138输入C=A18,B=A17,A=A16。Y0(000):80000H~80FFFH。" },
+        { type:"fill", text:"Q4. A15~A12接地后，片内实际有效地址线是A____~A0共____根。有无地址重叠？____（填有/无）", blanks:["11","12","无"], explanation:"A15~A12固定0，实际用A11~A0共12根片内地址。A15~A12虽未参与译码但固定0，无重叠。" }
+      ]
+    }
   ],
   prog: [
     { question: "将AL的低4位清零，高4位保持不变，用3条指令完成。", tag: "asm", answer: "AND AL, 0F0H<br>HLT" },
@@ -1167,6 +1265,7 @@ function getQuestionTypeLabel(q) {
   if (q.type === 'fill') return '填空';
   if (q.type === 'choice') return '选择';
   if (q.type === 'tf') return '判断';
+  if (q.type === 'mem') return '存储器扩展';
   return '简答/编程';
 }
 
@@ -1174,6 +1273,7 @@ function getQuestionTypeTag(q) {
   if (q.type === 'fill') return 'fill';
   if (q.type === 'choice') return 'choice';
   if (q.type === 'tf') return 'tf';
+  if (q.type === 'mem') return 'mem';
   return 'prog';
 }
 
@@ -1233,7 +1333,12 @@ function renderWrongQuestions() {
         <button class="btn-show-answer" onclick="var el=document.getElementById('wa_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}');el.classList.toggle('show');this.textContent=el.classList.contains('show')?'隐藏答案':'显示答案'" style="font-size:12px;padding:4px 12px;">显示答案</button>
         ${q.marked ? `<button class="btn-retry-wrong" onclick="var el=document.getElementById('wc_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}');el.style.display=el.style.display==='block'?'none':'block'" style="font-size:12px;padding:4px 12px;">🔍 查看改错</button>` : ''}
       </div>
-      ${q.explanation ? `<div class="q-answer correct-ans" id="wa_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}" style="font-size:12px;margin-top:4px;">${q.explanation}</div>` : ''}
+      ${q.type === 'mem' && q.subs
+        ? `<div class="q-answer correct-ans" id="wa_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}" style="font-size:12px;margin-top:4px;">${q.subs.map((sub, si) => {
+            const ans = sub.type === 'choice' ? sub.options[sub.answer] : sub.blanks.join('、');
+            return '<b>Q' + (si+1) + ':</b> ' + ans + (sub.explanation ? ' — ' + sub.explanation : '');
+          }).join('<br>')}</div>`
+        : q.explanation ? `<div class="q-answer correct-ans" id="wa_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}" style="font-size:12px;margin-top:4px;">${q.explanation}</div>` : ''}
       ${q.marked ? `<div id="wc_${q.id.replace(/[^a-zA-Z0-9_]/g,'_')}" style="display:none;margin-top:8px;padding:10px;background:#f8fafc;border-radius:8px;font-family:monospace;font-size:13px;line-height:1.8;">
         <div style="font-weight:600;margin-bottom:6px;font-size:12px;font-family:sans-serif;">📝 你的回答：</div>
         <div style="white-space:pre-wrap;">${fmtMarked(q.marked)}</div>
@@ -1343,6 +1448,22 @@ function renderWrongQuizQuestion() {
         <button class="btn-show-answer" onclick="wqzShowFillAns()" style="font-size:12px;">显示答案</button>
       </div>
       <div class="q-answer" id="wqzFillResult"></div>`;
+  } else if (q.type === 'mem' && q.subs) {
+    let subsHtml = q.subs.map((sub, si) => {
+      const ans = sub.type === 'choice' ? sub.options[sub.answer] : sub.blanks.join('、');
+      return `<div class="mem-subq"><div class="mem-subq-label">Q${si+1}</div>
+        <div class="mem-subq-text">${sub.text}</div>
+        <div style="font-size:12px;color:var(--success);margin-top:4px;">✓ 答案：${ans}${sub.explanation ? ' — ' + sub.explanation : ''}</div></div>`;
+    }).join('');
+    html += `<div style="margin-bottom:8px;">${subsHtml}</div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn-correct" onclick="wqzNext(true)">✓ 会了</button>
+        <button class="btn-wrong" onclick="wqzNext(false)" style="background:var(--wrong);color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">✗ 不会</button>
+      </div>
+      <div style="margin-top:8px;">
+        <button class="btn-check" onclick="wqzExplain()" style="font-size:12px;">🤖 AI 讲解</button>
+      </div>
+      <div class="q-answer" id="wqzProgResult"></div>`;
   } else {
     html += `<textarea id="wqzProgInput" placeholder="在此输入你的答案..." style="width:100%;min-height:80px;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:8px;resize:vertical;"></textarea>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -1555,6 +1676,9 @@ async function wqzExplain() {
     prompt = `题目：${q.question}\n正确答案：${ansMatch ? ansMatch[1] : (q.explanation || '')}\n请详细讲解这道填空题的知识点。`;
   } else if (q.type === 'prog') {
     prompt = `题目：${q.question}\n参考答案：\n${q.answer || q.explanation || ''}\n请逐条讲解每条指令的作用，用;注释风格写在指令后面。`;
+  } else if (q.type === 'mem' && q.subs) {
+    const subsText = q.subs.map((s, i) => `Q${i+1}: ${s.text}\n答案：${s.type === 'choice' ? s.options[s.answer] : s.blanks.join('、')}${s.explanation ? ' — ' + s.explanation : ''}`).join('\n');
+    prompt = `题目：${q.question}\n${subsText}\n请详细讲解这道存储器扩展题的各子题知识点和解题思路。`;
   } else {
     prompt = `题目：${q.question}\n参考答案：${q.answer || q.explanation || ''}\n请详细讲解这道题的知识点和解题思路。`;
   }
@@ -1861,6 +1985,18 @@ function renderChoices(section) {
         </div>
         <div class="q-answer correct-ans" id="ans_${section}_${i}">${q.answer}</div>
       </div>`;
+    } else if (section === 'memoryExpansion') {
+      const subsHtml = q.subs ? q.subs.map((sub, si) => {
+        const ans = sub.type === 'choice' ? sub.options[sub.answer] : sub.blanks.join('、');
+        return `<div class="mem-subq"><div class="mem-subq-label">Q${si+1}</div>
+          <div class="mem-subq-text">${sub.text}</div>
+          <div style="font-size:12px;color:var(--success);margin-top:4px;">答案：${ans}</div></div>`;
+      }).join('') : '';
+      return `<div class="q-card">
+        <div class="q-number">${idx}. 存储器扩展 <span class="tag tag-mem">mem</span></div>
+        <div class="mem-circuit-desc">${q.question}</div>
+        ${subsHtml}
+      </div>`;
     }
     if (section === 'trueFalse') {
       return `<div class="q-card">
@@ -1991,7 +2127,8 @@ const SECTIONS = [
   { key: 'trueFalse', label: '判断题' },
   { key: 'shortAnswer', label: '简答题' },
   { key: 'programming', label: '编程题' },
-  { key: 'comprehensive', label: '综合题' }
+  { key: 'comprehensive', label: '综合题' },
+  { key: 'memoryExpansion', label: '存储器扩展' }
 ];
 
 function renderPracticeNav() {
@@ -2040,6 +2177,9 @@ function startQuiz() {
   }
   if (document.getElementById('qzProg').checked) {
     [...QUESTIONS.programming, ...QUESTIONS.comprehensive].forEach(q => pool.push({ type: 'prog', ...q }));
+  }
+  if (document.getElementById('qzMem').checked) {
+    [...(GENERATED_POOL.mem || [])].forEach(q => pool.push({ type: 'mem', ...q }));
   }
 
   if (pool.length === 0) { alert('请至少选择一种题型！'); return; }
@@ -2138,6 +2278,32 @@ function renderQuizQuestion() {
       ${fillHtml}</div>
       <div style="padding:0 16px 16px"><button class="btn-check" onclick="qzSubmitFill()">提交</button></div>
       <div class="q-answer" id="qzResult"></div>
+    </div></div>`;
+  } else if (q.type === 'mem' && q.subs) {
+    const qid = 'qzmem' + quizIndex;
+    let subsHtml = q.subs.map((sub, si) => {
+      let s = `<div class="mem-subq"><div class="mem-subq-label">Q${si+1}</div><div class="mem-subq-text">${sub.text}</div>`;
+      if (sub.type === 'choice') {
+        s += `<div class="mem-subq-options" id="${qid}_s${si}_opts">
+          ${sub.options.map((o, oi) => `<div class="mem-subq-option" onclick="qzMemSelectChoice(${quizIndex},${si},${oi})" data-qzmc="${si}-${oi}">${o}</div>`).join('')}
+        </div>`;
+      } else if (sub.type === 'fill') {
+        let ft = sub.text;
+        sub.blanks.forEach((a, bi) => { ft = ft.replace(/_{4,}/, `<input class="mem-fill-blank" id="${qid}_s${si}_b${bi}" placeholder="空${bi+1}">`); });
+        s += `<div style="line-height:2.5;">${ft}</div>`;
+      }
+      s += `<div class="mem-subq-result" id="${qid}_s${si}_result"></div></div>`;
+      return s;
+    }).join('');
+    html += `<div class="card"><div class="q-card">
+      <div class="q-number">存储器扩展 <span class="tag tag-mem">mem</span></div>
+      <div class="mem-circuit-desc">${q.question}</div>
+      ${subsHtml}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <button class="btn-check" onclick="qzSubmitMem(${quizIndex})">📝 提交批改</button>
+        <button class="btn-show-answer" onclick="qzToggleMemAns(${quizIndex})">显示答案</button>
+      </div>
+      <div class="q-answer" id="${qid}_result"></div>
     </div></div>`;
   } else {
     html += `<div class="card"><div class="q-card">
@@ -2280,6 +2446,104 @@ function qzSubmitProg() {
   .catch(() => { result.innerHTML = '网络错误'; });
 }
 
+// Quiz mem sub-question selection
+let quizMemAnswers = {}; // { quizIdx: { subIdx: {choice:i}|{fills:[ans]} } }
+function qzMemSelectChoice(quizIdx, subIdx, oi) {
+  if (!quizMemAnswers[quizIdx]) quizMemAnswers[quizIdx] = {};
+  quizMemAnswers[quizIdx][subIdx] = { choice: oi };
+  const prefix = 'qzmem' + quizIdx;
+  const opts = document.getElementById(prefix + '_s' + subIdx + '_opts');
+  if (!opts) return;
+  opts.querySelectorAll('.mem-subq-option').forEach(el => el.classList.remove('selected'));
+  const target = opts.querySelector('[data-qzmc="' + subIdx + '-' + oi + '"]');
+  if (target) target.classList.add('selected');
+}
+
+async function qzSubmitMem(quizIdx) {
+  const q = quizQuestions[quizIdx];
+  if (!q || !q.subs) return;
+  if (!quizMemAnswers[quizIdx]) quizMemAnswers[quizIdx] = {};
+  if (!deepseekApiKey) { alert('请先在设置中配置 DeepSeek API 密钥'); return; }
+  const qid = 'qzmem' + quizIdx;
+
+  const userParts = [];
+  q.subs.forEach((sub, si) => {
+    if (sub.type === 'choice') {
+      const sel = quizMemAnswers[quizIdx][si]?.choice;
+      userParts.push(`Q${si+1}: ${sel !== undefined ? sub.options[sel] : '(未选择)'}`);
+    } else if (sub.type === 'fill') {
+      const vals = [];
+      sub.blanks.forEach((a, bi) => {
+        const input = document.getElementById(qid + '_s' + si + '_b' + bi);
+        vals.push(input ? input.value.trim() : '');
+      });
+      userParts.push(`Q${si+1}: ${vals.join(', ') || '(未填写)'}`);
+    }
+  });
+  const userAnsText = userParts.join('\n');
+
+  const result = document.getElementById(qid + '_result');
+  result.innerHTML = '<span style="color:var(--text-light);">AI 批改中...</span>';
+  result.classList.add('show');
+  result.classList.remove('correct-ans', 'wrong-ans');
+
+  const stdParts = q.subs.map((sub, si) => {
+    const ans = sub.type === 'choice' ? sub.options[sub.answer] : sub.blanks.join('、');
+    return `Q${si+1}: ${ans}`;
+  }).join('\n');
+
+  try {
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: '你是微机原理助教，批改存储器扩展电路分析题。逐题判断对错，地址范围和容量计算需精确。输出JSON：{"correct":true/false,"marked":"逐题标注,每题一行: Q1 ✓ 或 Q1 ✗(原因),错误用<red></red>标记","correctCode":"各题正确答案"}' },
+          { role: 'user', content: `电路描述：${q.question}\n标准答案：\n${stdParts}\n学生答案：\n${userAnsText}\n\n逐题批改，地址范围和数值计算严格对照标准答案。` }
+        ],
+        temperature: 0.1,
+        max_tokens: 500
+      })
+    });
+    const data = await resp.json();
+    if (data.error) { result.innerHTML = 'API 错误'; return; }
+    const content = data.choices?.[0]?.message?.content || '';
+    let correct = false, marked = '', correctCode = '';
+    try {
+      const j = JSON.parse(content.replace(/```json/g,'').replace(/```/g,'').trim());
+      correct = j.correct;
+      marked = j.marked || '';
+      correctCode = j.correctCode || '';
+    } catch(e) { correct = false; marked = '批改失败'; }
+
+    result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+    const displayMarked = fmtMarked(marked);
+    result.innerHTML = correct
+      ? '✅ 全部正确'
+      : `<div style="font-family:monospace;font-size:13px;line-height:1.8;white-space:pre-wrap;">${displayMarked}</div>
+         <div style="margin-top:6px;font-size:12px;color:var(--success);font-family:monospace;white-space:pre-wrap;">标准答案：\n${correctCode}</div>`;
+
+    quizAnalysis[quizIdx] = { correct, userAnswers: quizMemAnswers[quizIdx], marked, correctCode };
+    qzNext(correct);
+  } catch(e) {
+    result.innerHTML = '网络错误: ' + e.message;
+  }
+}
+
+function qzToggleMemAns(quizIdx) {
+  const q = quizQuestions[quizIdx];
+  if (!q || !q.subs) return;
+  const result = document.getElementById('qzmem' + quizIdx + '_result');
+  if (!result) return;
+  const ansHtml = q.subs.map((sub, si) => {
+    const ans = sub.type === 'choice' ? sub.options[sub.answer] : sub.blanks.join('、');
+    return '<b>Q' + (si+1) + ':</b> ' + ans + (sub.explanation ? ' — ' + sub.explanation : '');
+  }).join('<br>');
+  result.classList.add('show', 'correct-ans');
+  result.innerHTML = result.innerHTML === ansHtml ? (quizAnalysis[quizIdx]?.correct !== undefined ? (quizAnalysis[quizIdx].correct ? '✅ 全部正确' : '❌ 有子题答错') : '') : ansHtml;
+}
+
 function qzNext(correct) {
   const q = quizQuestions[quizIndex];
   if (q) {
@@ -2291,6 +2555,9 @@ function qzNext(correct) {
         addToWrong({ id: qid, type: 'prog', question: q.question, tag: q.tag, answer: q.answer, explanation: q.explanation || '', userAnswer: a.userAnswer || '', marked: a.marked || '', correctCode: a.correctCode || '' });
       } else if (q.type === 'fill') {
         addToWrong({ id: qid, type: 'fill', question: (q.question || q.text || '').replace(/_{4,}/g, '____'), tag: q.tag, explanation: `答案：${q.blanks?.join('、') || ''}` });
+      } else if (q.type === 'mem') {
+        const a = quizAnalysis[quizIndex] || {};
+        addToWrong({ id: qid, type: 'mem', question: q.question, tag: q.tag, subs: q.subs, explanation: '存储器扩展题，请查看子题结果', userAnswers: a.userAnswers });
       } else {
         addToWrong({ id: qid, type: q.type, question: q.question, tag: q.tag, options: q.options, answer: q.answer, explanation: q.explanation || '' });
       }
@@ -2332,6 +2599,11 @@ function showQuizResult() {
               extra += `<div style="font-family:monospace;font-size:12px;margin:4px 0;white-space:pre-wrap;">${markedHtml}</div>`;
             }
             extra += `<div style="font-family:monospace;font-size:12px;color:var(--success);margin:2px 0;white-space:pre-wrap;">✅ 标准答案：\n${a?.correctCode || q.answer || ''}</div>`;
+          } else if (q.type === 'mem' && q.subs) {
+            extra += '<div style="font-size:12px;margin:4px 0;">' + q.subs.map((sub, si) => {
+              const ans = sub.type === 'choice' ? sub.options[sub.answer] : sub.blanks.join('、');
+              return '<b>Q' + (si+1) + ':</b> ' + ans + (sub.explanation ? ' — ' + sub.explanation : '');
+            }).join('<br>') + '</div>';
           } else {
             extra += `<div style="margin:4px 0 2px;color:var(--text-light);">${q.explanation || (q.type==='fill' ? '答案：'+(q.blanks?.join('、')||'') : '')}</div>`;
           }
@@ -2440,6 +2712,8 @@ async function callDeepSeek(prompt) {
 // Store user selections for new questions grading
 let newqChoices = {};
 let newqTF = {};
+let newqMemAnswers = {}; // { nid: { subIdx: {choice:i}|{fills:[ans]} } }
+let sessionAiPool = {}; // cached AI-generated questions per type
 let newqData = {}; // question data for grading
 
 // ============================================================
@@ -2454,24 +2728,82 @@ function selectGenType(type) {
   if (btn) { btn.style.background = 'var(--primary-light)'; btn.style.borderColor = 'var(--primary)'; }
 }
 
-function generateNewQuestions() {
+async function generateNewQuestions() {
   const container = document.getElementById('newQuestionsContainer');
   let pool = [];
   if (genType === 'random' || genType === 'choice') pool.push(...GENERATED_POOL.choice.map(q => ({ ...q, type: 'choice' })));
   if (genType === 'random' || genType === 'fill') pool.push(...GENERATED_POOL.fill.map(q => ({ ...q, type: 'fill' })));
   if (genType === 'random' || genType === 'tf') pool.push(...GENERATED_POOL.tf.map(q => ({ ...q, type: 'tf' })));
   if (genType === 'random' || genType === 'prog') pool.push(...GENERATED_POOL.prog.map(q => ({ ...q, type: 'prog' })));
-  if (pool.length < 5 && (genType === 'random' || genType === 'choice')) {
-    QUESTIONS.choice.forEach(q => pool.push({ ...q, type: 'choice' }));
+  if (genType === 'random' || genType === 'mem') pool.push(...GENERATED_POOL.mem.map(q => ({ ...q, type: 'mem' })));
+  // Supplement from QUESTIONS pool when not enough questions
+  const targetCount = genType === 'random' ? 10 : 10;
+  if (pool.length < targetCount) {
+    if (genType === 'random' || genType === 'choice') {
+      QUESTIONS.choice.forEach(q => pool.push({ ...q, type: 'choice' }));
+    }
+    if (genType === 'random' || genType === 'fill') {
+      QUESTIONS.fillBlank.groups.forEach(g => g.items.forEach(item => pool.push({ type: 'fill', tag: g.tag, ...item })));
+    }
+    if (genType === 'random' || genType === 'tf') {
+      QUESTIONS.trueFalse.forEach(q => pool.push({ type: 'tf', ...q }));
+    }
+    if (genType === 'random' || genType === 'prog') {
+      QUESTIONS.programming.forEach(q => pool.push({ type: 'prog', ...q }));
+      QUESTIONS.comprehensive.forEach(q => pool.push({ type: 'prog', ...q }));
+    }
+    if (genType === 'random' || genType === 'mem') {
+      QUESTIONS.memoryExpansion.forEach(q => pool.push({ type: 'mem', ...q }));
+    }
   }
-  pool.sort(() => Math.random() - 0.5);
-  const selected = pool.slice(0, 10);
+  // AI generation when still not enough questions
+  if (pool.length < 10 && deepseekApiKey && genType !== 'random') {
+    if (!sessionAiPool[genType]) {
+      container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-light);font-size:14px;">🤖 AI 正在生成题目，请稍候...</div>';
+      const aiQs = await aiGenerateQuestions(genType);
+      if (aiQs && aiQs.length > 0) sessionAiPool[genType] = aiQs;
+    }
+    if (sessionAiPool[genType]) {
+      sessionAiPool[genType].forEach(q => pool.push({ ...q, type: genType }));
+    }
+  }
+  // Deduplicate by question text prefix
+  const seen = new Set();
+  pool = pool.filter(q => {
+    const key = (q.question || q.text || '').substring(0, 25);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  // Weighted selection: higher error rate = more likely to appear
+  const weighted = pool.map(q => {
+    const qid = q.id;
+    const errRate = getErrorRate(qid);
+    const weight = 1 + errRate * 4;
+    return { q, weight };
+  });
+  const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
+  const selected = [];
+  const remaining = [...weighted];
+  const pickCount = Math.min(10, pool.length);
+  for (let i = 0; i < pickCount; i++) {
+    let r = Math.random() * remaining.reduce((s, w) => s + w.weight, 0);
+    for (let j = 0; j < remaining.length; j++) {
+      r -= remaining[j].weight;
+      if (r <= 0) {
+        selected.push(remaining[j].q);
+        remaining.splice(j, 1);
+        break;
+      }
+    }
+  }
   if (selected.length === 0) { container.innerHTML = '<div class="card" style="padding:20px;text-align:center;">请选择题型后生成。</div>'; return; }
 
   const genId = Date.now();
   newqData = {};
   newqChoices = {};
   newqTF = {};
+  newqMemAnswers = {};
 
   let html = `<div style="margin-top:16px;"><h3 style="margin-bottom:12px;">🔨 生成的新题（${selected.length}题）</h3>
     <p style="font-size:12px;color:var(--text-light);margin-bottom:12px;">选择/输入答案后点击"批改"判对错，"讲解"获取详细解析，答错自动加入错题本</p>
@@ -2480,7 +2812,7 @@ function generateNewQuestions() {
   selected.forEach((q, i) => {
     const nid = `ng_${genId}_${i}`;
     const qText = q.question || q.text || '';
-    newqData[nid] = { type: q.type, question: qText, tag: q.tag || '', blanks: q.blanks, answer: q.answer, options: q.options, explanation: q.explanation };
+    newqData[nid] = { type: q.type, question: qText, tag: q.tag || '', blanks: q.blanks, answer: q.answer, options: q.options, explanation: q.explanation, subs: q.subs };
 
     html += `<div class="card"><div class="q-card">`;
 
@@ -2524,6 +2856,36 @@ function generateNewQuestions() {
         </div>
         <div class="q-answer correct-ans" id="${nid}_ans"><span class="label">答案：</span>${q.answer?'正确 ✓':'错误 ✗'}${q.explanation ? ' — ' + q.explanation : ''}</div>
         <div class="q-answer" id="${nid}_result"></div>`;
+    } else if (q.type === 'mem') {
+      let memAnsHtml = q.subs.map((sub, si) => {
+        const ans = sub.type === 'choice' ? sub.options[sub.answer] : sub.blanks.join('、');
+        return '<b>Q' + (si+1) + ':</b> ' + ans + (sub.explanation ? ' — ' + sub.explanation : '');
+      }).join('<br>');
+      html += `<div class="q-number">${i+1}. 存储器扩展 <span class="tag tag-mem">mem</span></div>
+        <div class="mem-circuit-desc">${qText}</div>
+        ${q.subs.map((sub, si) => {
+          let subHtml = '<div class="mem-subq" id="${nid}_s' + si + '">' +
+            '<div class="mem-subq-label">Q' + (si+1) + '</div>' +
+            '<div class="mem-subq-text">' + sub.text + '</div>';
+          if (sub.type === 'choice') {
+            subHtml += '<div class="mem-subq-options" id="${nid}_s' + si + '_opts">' +
+              sub.options.map((o, oi) => '<div class="mem-subq-option" onclick="newqMemSelectChoice(\'${nid}\',' + si + ',' + oi + ')">' + o + '</div>').join('') +
+              '</div>';
+          } else if (sub.type === 'fill') {
+            let ft = sub.text;
+            sub.blanks.forEach((a, bi) => { ft = ft.replace(/_{4,}/, '<input class="mem-fill-blank" id="${nid}_s' + si + '_b' + bi + '" placeholder="空' + (bi+1) + '" onkeydown="if(event.key===\\'Enter\\')newqGradeMem(\'${nid}\')">'); });
+            subHtml += '<div style="line-height:2.5;">' + ft + '</div>';
+          }
+          subHtml += '<div class="mem-subq-result" id="${nid}_s' + si + '_result"></div></div>';
+          return subHtml;
+        }).join('')}
+        <div class="q-actions">
+          <button class="btn-check" onclick="newqGradeMem('${nid}')">📝 批改</button>
+          <button class="btn-correct" onclick="newqExplainMem('${nid}')">🤖 讲解</button>
+          <button class="btn-show-answer" onclick="newqToggleAns('${nid}','ans')">显示答案</button>
+        </div>
+        <div class="q-answer correct-ans" id="${nid}_ans">${memAnsHtml}</div>
+        <div class="q-answer" id="${nid}_result"></div>`;
     } else {
       html += `<div class="q-number">${i+1}. 编程/综合题</div>
         <div class="q-text">${qText}</div>
@@ -2540,6 +2902,53 @@ function generateNewQuestions() {
     html += `</div></div>`;
   });
   container.innerHTML = html;
+}
+
+async function aiGenerateQuestions(type) {
+  const promptTemplates = {
+    choice: { system: '你是微机原理助教，生成汇编/微机接口选择题。输出JSON数组：[{question, tag, options:[4个选项A-D], answer:正确选项索引0-3, explanation}]。只输出JSON数组。', user: (ex) => `参考以下示例生成5道新的选择题，难度相同，知识点范围保持在8086/8088汇编和微机接口芯片（8253/8255/8259/中断/存储器）。\n示例：${JSON.stringify(ex, null, 2)}\n要求：题目不同、选项不同、知识点不超纲。` },
+    fill: { system: '你是微机原理助教，生成填空题。输出JSON数组：[{text:"含____的文本", blanks:["答案1","答案2"], tag}]。只输出JSON数组。', user: (ex) => `参考以下示例生成5道新填空题。\n示例：${JSON.stringify(ex, null, 2)}\n要求：题干不同、空白数量1-2个、知识点不超纲。` },
+    tf: { system: '你是微机原理助教，生成判断题。输出JSON数组：[{question, tag, answer:true/false, explanation}]。只输出JSON数组。', user: (ex) => `参考以下示例生成5道新判断题。\n示例：${JSON.stringify(ex, null, 2)}\n要求：题干不同、答案有对有错、知识点不超纲。` },
+    prog: { system: '你是微机原理助教，生成汇编编程题。输出JSON数组：[{question, tag, answer}]。只输出JSON数组。', user: (ex) => `参考以下示例生成5道新编程题。\n示例：${JSON.stringify(ex, null, 2)}\n要求：题目不同、需要编写汇编代码、知识点不超纲。用<br>分隔代码行。` },
+    mem: { system: '你是微机原理助教，生成存储器扩展电路分析题。输出JSON数组：[{question:"文字描述电路", tag:"mem", subs:[{type:"choice"|"fill", text, options/blanks, answer, explanation}]}]。只输出JSON数组。', user: (ex) => `参考以下示例生成3道新存储器扩展题。\n示例：${JSON.stringify(ex, null, 2)}\n要求：每题4-5个子题，Q1判断扩展类型、Q2容量、Q3地址线分配、Q4地址范围、Q5可选地址重叠。数值计算严格准确。` }
+  };
+  const tpl = promptTemplates[type];
+  if (!tpl) return null;
+
+  let examples = GENERATED_POOL[type] || [];
+  if (examples.length === 0 && QUESTIONS[type === 'fill' ? 'fillBlank' : type]) {
+    if (type === 'fill') {
+      const items = [];
+      QUESTIONS.fillBlank.groups.forEach(g => g.items.forEach(item => items.push({ text: item.text, blanks: item.blanks, tag: g.tag })));
+      examples = items;
+    } else if (type === 'prog') {
+      examples = [...(QUESTIONS.programming || []), ...(QUESTIONS.comprehensive || [])];
+    } else examples = QUESTIONS[type] || [];
+  }
+  if (!examples || examples.length === 0) return null;
+
+  try {
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: tpl.system },
+          { role: 'user', content: tpl.user(examples.slice(0, 2)) }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000
+      })
+    });
+    const data = await resp.json();
+    if (data.error) return null;
+    const content = data.choices?.[0]?.message?.content || '';
+    const parsed = JSON.parse(content.replace(/```json/g,'').replace(/```/g,'').trim());
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed.questions && Array.isArray(parsed.questions)) return parsed.questions;
+    return null;
+  } catch(e) { return null; }
 }
 
 function newqSelectChoice(nid, oi) {
@@ -2704,6 +3113,92 @@ async function newqGradeProg(nid) {
   recordAnswer(nid, correct);
 }
 
+function newqMemSelectChoice(nid, subIdx, oi) {
+  if (!newqMemAnswers[nid]) newqMemAnswers[nid] = {};
+  newqMemAnswers[nid][subIdx] = { choice: oi };
+  const opts = document.getElementById(`${nid}_s${subIdx}_opts`);
+  if (!opts) return;
+  opts.querySelectorAll('.mem-subq-option').forEach(el => el.classList.remove('selected'));
+  const target = opts.querySelector(`.mem-subq-option:nth-child(${oi+1})`);
+  if (target) target.classList.add('selected');
+}
+
+async function newqGradeMem(nid) {
+  const d = newqData[nid];
+  if (!d || !d.subs) return;
+  if (!newqMemAnswers[nid]) newqMemAnswers[nid] = {};
+  if (!deepseekApiKey) { alert('请先在设置中配置 DeepSeek API 密钥'); return; }
+
+  const subs = d.subs;
+  // Collect user answers per sub-question
+  const userParts = [];
+  subs.forEach((sub, si) => {
+    if (sub.type === 'choice') {
+      const sel = newqMemAnswers[nid][si]?.choice;
+      userParts.push(`Q${si+1}: ${sel !== undefined ? sub.options[sel] : '(未选择)'}`);
+    } else if (sub.type === 'fill') {
+      const vals = [];
+      sub.blanks.forEach((a, bi) => {
+        const input = document.getElementById(`${nid}_s${si}_b${bi}`);
+        vals.push(input ? input.value.trim() : '');
+      });
+      userParts.push(`Q${si+1}: ${vals.join(', ') || '(未填写)'}`);
+    }
+  });
+  const userAnsText = userParts.join('\n');
+
+  const result = document.getElementById(`${nid}_result`);
+  result.innerHTML = '<span style="color:var(--text-light);">AI 批改中...</span>';
+  result.classList.add('show');
+  result.classList.remove('correct-ans', 'wrong-ans');
+
+  const stdParts = subs.map((sub, si) => {
+    const ans = sub.type === 'choice' ? sub.options[sub.answer] : sub.blanks.join('、');
+    return `Q${si+1}: ${ans}`;
+  }).join('\n');
+
+  try {
+    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: '你是微机原理助教，批改存储器扩展电路分析题。逐题判断对错，地址范围和容量计算需精确。输出JSON：{"correct":true/false,"marked":"逐题标注,每题一行: Q1 ✓ 或 Q1 ✗(原因),错误用<red></red>标记","correctCode":"各题正确答案"}' },
+          { role: 'user', content: `电路描述：${d.question}\n标准答案：\n${stdParts}\n学生答案：\n${userAnsText}\n\n逐题批改，地址范围和数值计算严格对照标准答案。` }
+        ],
+        temperature: 0.1,
+        max_tokens: 500
+      })
+    });
+    const data = await resp.json();
+    if (data.error) { result.innerHTML = 'API 错误'; return; }
+    const content = data.choices?.[0]?.message?.content || '';
+    let correct = false, marked = '', correctCode = '';
+    try {
+      const j = JSON.parse(content.replace(/```json/g,'').replace(/```/g,'').trim());
+      correct = j.correct;
+      marked = j.marked || '';
+      correctCode = j.correctCode || '';
+    } catch(e) { correct = false; marked = '批改失败'; }
+
+    result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+    const displayMarked = fmtMarked(marked);
+    result.innerHTML = correct
+      ? `✅ 全部正确`
+      : `<div style="font-family:monospace;font-size:13px;line-height:1.8;white-space:pre-wrap;">${displayMarked}</div>
+         <div style="margin-top:6px;font-size:12px;color:var(--success);font-family:monospace;white-space:pre-wrap;">标准答案：\n${correctCode}</div>`;
+
+    if (!correct) {
+      addToWrong({ id: nid, type: 'mem', question: d.question, tag: d.tag, subs: d.subs, explanation: correctCode || '请查看批改结果', userAnswer: userAnsText, marked });
+    }
+    recordAnswer(nid, correct);
+  } catch(e) {
+    result.innerHTML = '网络错误: ' + e.message;
+  }
+}
+
+const newqExplainMem = newqExplain;
 // ——— 讲解（调用 DeepSeek 详细解释） ———
 
 function makeExplainPrompt(d) {
@@ -2714,6 +3209,9 @@ function makeExplainPrompt(d) {
   } else if (d.type === 'fill') {
     const ans = d.blanks ? d.blanks.join('、') : '';
     return { prompt: `题目：${d.question}\n正确答案：${ans}\n请详细讲解这道填空题的知识点。`, system: '你是微机原理助教，请详细讲解以下题目。200字以内。不要回复JSON，直接输出讲解内容。' };
+  } else if (d.type === 'mem' || d.subs) {
+    const subsText = (d.subs || []).map((s, i) => `Q${i+1}: ${s.text}\n答案：${s.type === 'choice' ? s.options[s.answer] : s.blanks.join('、')}${s.explanation ? ' — ' + s.explanation : ''}`).join('\n');
+    return { prompt: `存储器扩展电路分析题：\n${d.question}\n${subsText}\n请逐一讲解各个子题的知识点和解题思路，特别是地址范围的计算方法。`, system: '你是微机原理助教，请详细讲解以下存储器扩展题目。200字以内。不要回复JSON，直接输出讲解内容。' };
   } else {
     return { prompt: `题目：${d.question}\n参考答案：${d.answer || d.explanation || ''}\n请逐条讲解每条指令的作用，用;注释风格写在指令后面。`, system: '你是微机原理助教。用汇编注释风格讲解编程题答案。输出格式：每条指令 + ;注释说明该指令作用。不要用汉字段落，用;注释。' };
   }
