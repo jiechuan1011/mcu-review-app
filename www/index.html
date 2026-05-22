@@ -945,10 +945,10 @@ const GENERATED_POOL = {
         { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:0, explanation:"3片4K×8芯片，数据位均为8位，只扩展字数。" },
         { type:"fill", text:"Q2. 该系统总存储器容量为____KB。", blanks:["12"], explanation:"3片×4KB=12KB。" },
         { type:"fill", text:"Q3. 每片SRAM的片内地址线由A11~A0共____根，片选相关的地址线为A____~A12共4根。", blanks:["12","15"], explanation:"每片4KB需12根地址线A11~A0。" },
-        { type:"fill", text:"Q4. 写出各芯片地址范围（十六进制）：
+        { type:"fill", text:`Q4. 写出各芯片地址范围（十六进制）：
 第1片(Y0)：____H ~ ____H
 第2片(Y1)：____H ~ ____H
-第3片(Y2)：____H ~ ____H", blanks:["08000","08FFF","09000","09FFF","0A000","0AFFF"], explanation:"A15=1使G1有效，74LS138译码Y0~Y2。Y0(000):08000H~08FFFH, Y1(001):09000H~09FFFH, Y2(010):0A000H~0AFFFH。" },
+第3片(Y2)：____H ~ ____H`, blanks:["08000","08FFF","09000","09FFF","0A000","0AFFF"], explanation:"A15=1使G1有效，74LS138译码Y0~Y2。Y0(000):08000H~08FFFH, Y1(001):09000H~09FFFH, Y2(010):0A000H~0AFFFH。" },
         { type:"choice", text:"Q5. 该电路是否存在地址重叠？", options:["存在重叠","不存在重叠"], answer:1, explanation:"各片选输出唯一，A19~A16固定为0，无地址重叠。" }
       ]
     },
@@ -969,10 +969,10 @@ const GENERATED_POOL = {
       subs: [
         { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:0, explanation:"5片4K×8，扩展字数到20K×8，字扩展。" },
         { type:"fill", text:"Q2. 系统总存储器容量为____KB。", blanks:["20"], explanation:"5×4KB=20KB。" },
-        { type:"fill", text:"Q3. 写出各芯片地址范围（每片4KB=1000H）：
+        { type:"fill", text:`Q3. 写出各芯片地址范围（每片4KB=1000H）：
 Y0：____H~____H  Y1：____H~____H
 Y2：____H~____H  Y3：____H~____H
-Y4：____H~____H", blanks:["80000","80FFF","81000","81FFF","82000","82FFF","83000","83FFF","84000","84FFF"], explanation:"G1接A19，需A19=1。74LS138输入C=A18,B=A17,A=A16。Y0(000):80000H~80FFFH。" },
+Y4：____H~____H`, blanks:["80000","80FFF","81000","81FFF","82000","82FFF","83000","83FFF","84000","84FFF"], explanation:"G1接A19，需A19=1。74LS138输入C=A18,B=A17,A=A16。Y0(000):80000H~80FFFH。" },
         { type:"fill", text:"Q4. A15~A12接地后，片内实际有效地址线是A____~A0共____根。有无地址重叠？____（填有/无）", blanks:["11","12","无"], explanation:"A15~A12固定0，实际用A11~A0共12根片内地址。A15~A12虽未参与译码但固定0，无重叠。" }
       ]
     }
@@ -1197,44 +1197,15 @@ function downloadAPK(url, version) {
     return;
   }
 
-  const xhr = new XMLHttpRequest();
-  xhr.open('GET', url, true);
-  xhr.responseType = 'blob';
-
-  xhr.onprogress = (e) => {
-    if (e.lengthComputable && e.total > 0) {
-      updateProgress(Math.round((e.loaded / e.total) * 100));
-    }
-  };
-
-  xhr.onload = () => {
-    if (xhr.status === 200) {
-      updateProgress(100);
-      const blob = xhr.response;
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = 'mcu-review-app-' + version + '.apk';
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-
-      banner.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
-          <span>下载完成，请打开通知栏或下载文件夹安装</span>
-          <button onclick="this.closest('#updateBanner').remove()" style="padding:4px 12px;border:1px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:12px;">关闭</button>
-        </div>`;
-      setTimeout(() => { if (banner.parentNode) banner.remove(); }, 15000);
-    } else {
-      showError('HTTP ' + xhr.status);
-    }
-  };
-
-  xhr.onerror = () => showError('网络错误');
-  xhr.ontimeout = () => showError('连接超时');
-  xhr.send();
+  // Cross-origin download: direct navigation bypasses CORS
+  window.location.href = url;
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
+      <span>下载已开始，如未弹出请手动下载</span>
+      <a href="${url}" target="_blank" style="padding:4px 12px;border:none;border-radius:6px;background:#fff;color:var(--primary);font-weight:700;cursor:pointer;font-size:12px;text-decoration:none;">下载链接</a>
+      <button onclick="this.closest('#updateBanner').remove()" style="padding:4px 12px;border:1px solid rgba(255,255,255,.5);border-radius:6px;background:transparent;color:#fff;cursor:pointer;font-size:12px;">关闭</button>
+    </div>`;
+  setTimeout(() => { if (banner.parentNode) banner.remove(); }, 30000);
 }
 
 // ============================================================
@@ -2873,7 +2844,7 @@ async function generateNewQuestions() {
               '</div>';
           } else if (sub.type === 'fill') {
             let ft = sub.text;
-            sub.blanks.forEach((a, bi) => { ft = ft.replace(/_{4,}/, '<input class="mem-fill-blank" id="${nid}_s' + si + '_b' + bi + '" placeholder="空' + (bi+1) + '" onkeydown="if(event.key===\\'Enter\\')newqGradeMem(\'${nid}\')">'); });
+            sub.blanks.forEach((a, bi) => { ft = ft.replace(/_{4,}/, '<input class="mem-fill-blank" id="${nid}_s' + si + '_b' + bi + '" placeholder="空' + (bi+1) + '" onkeydown="if(event.key===\'Enter\')newqGradeMem(\'${nid}\')">'); });
             subHtml += '<div style="line-height:2.5;">' + ft + '</div>';
           }
           subHtml += '<div class="mem-subq-result" id="${nid}_s' + si + '_result"></div></div>';
