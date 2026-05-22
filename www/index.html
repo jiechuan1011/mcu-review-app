@@ -2728,7 +2728,7 @@ async function generateNewQuestions() {
     }
   }
   // AI generation when still not enough questions
-  if (pool.length < 10 && deepseekApiKey && genType !== 'random') {
+  if (deepseekApiKey && genType !== 'random') {
     if (!sessionAiPool[genType]) {
       container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-light);font-size:14px;">🤖 AI 正在生成题目，请稍候...</div>';
       const aiQs = await aiGenerateQuestions(genType);
@@ -2835,19 +2835,19 @@ async function generateNewQuestions() {
       html += `<div class="q-number">${i+1}. 存储器扩展 <span class="tag tag-mem">mem</span></div>
         <div class="mem-circuit-desc">${qText}</div>
         ${q.subs.map((sub, si) => {
-          let subHtml = '<div class="mem-subq" id="${nid}_s' + si + '">' +
-            '<div class="mem-subq-label">Q' + (si+1) + '</div>' +
-            '<div class="mem-subq-text">' + sub.text + '</div>';
+          let subHtml = `<div class="mem-subq" id="${nid}_s${si}">
+            <div class="mem-subq-label">Q${si+1}</div>
+            <div class="mem-subq-text">${sub.text}</div>`;
           if (sub.type === 'choice') {
-            subHtml += '<div class="mem-subq-options" id="${nid}_s' + si + '_opts">' +
-              sub.options.map((o, oi) => '<div class="mem-subq-option" onclick="newqMemSelectChoice(\'${nid}\',' + si + ',' + oi + ')">' + o + '</div>').join('') +
-              '</div>';
+            subHtml += `<div class="mem-subq-options" id="${nid}_s${si}_opts">
+              ${sub.options.map((o, oi) => `<div class="mem-subq-option" onclick="newqMemSelectChoice('${nid}',${si},${oi})">${o}</div>`).join('')}
+            </div>`;
           } else if (sub.type === 'fill') {
             let ft = sub.text;
-            sub.blanks.forEach((a, bi) => { ft = ft.replace(/_{4,}/, '<input class="mem-fill-blank" id="${nid}_s' + si + '_b' + bi + '" placeholder="空' + (bi+1) + '" onkeydown="if(event.key===\'Enter\')newqGradeMem(\'${nid}\')">'); });
-            subHtml += '<div style="line-height:2.5;">' + ft + '</div>';
+            sub.blanks.forEach((a, bi) => { ft = ft.replace(/_{4,}/, `<input class="mem-fill-blank" id="${nid}_s${si}_b${bi}" placeholder="空${bi+1}" onkeydown="if(event.key==='Enter')newqGradeMem('${nid}')">`); });
+            subHtml += `<div style="line-height:2.5;">${ft}</div>`;
           }
-          subHtml += '<div class="mem-subq-result" id="${nid}_s' + si + '_result"></div></div>';
+          subHtml += `<div class="mem-subq-result" id="${nid}_s${si}_result"></div></div>`;
           return subHtml;
         }).join('')}
         <div class="q-actions">
