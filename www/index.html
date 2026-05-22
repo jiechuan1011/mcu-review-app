@@ -261,6 +261,22 @@ main.active { display: block; }
 .tag-choice { background: #dbeafe; color: #1d4ed8; }
 .tag-tf { background: #fce7f3; color: #be185d; }
 .tag-prog { background: #d1fae5; color: #047857; }
+
+/* Settings Modal */
+#settingsPanel { display:none; }
+#settingsPanel.show { display:flex; }
+#settingsOverlay {
+  position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:999;
+  animation:fadeIn .2s ease;
+}
+#settingsModal {
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:var(--card);border-radius:var(--radius-lg);
+  padding:28px;width:90%;max-width:420px;z-index:1000;
+  box-shadow:0 20px 60px rgba(0,0,0,0.15);
+  animation:modalIn .25s ease;
+}
+@keyframes modalIn { from { opacity:0;transform:translate(-50%,-48%) scale(0.96); } to { opacity:1;transform:translate(-50%,-50%) scale(1); } }
 </style>
 </head>
 <body>
@@ -272,14 +288,23 @@ main.active { display: block; }
     <button onclick="toggleSettings()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:4px;" title="设置">⚙️</button>
   </div>
 </header>
-<div id="settingsPanel" style="display:none;background:#fff;border-bottom:2px solid var(--primary);padding:12px 20px;font-size:13px;max-width:800px;margin:0 auto;">
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <span style="font-weight:600;white-space:nowrap;">DeepSeek API 密钥：</span>
-    <input id="deepseekKeyInput" type="password" placeholder="sk-..." value="${deepseekApiKey}" style="flex:1;min-width:150px;padding:6px 10px;border:2px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;">
-    <button onclick="saveDeepSeekKey()" style="padding:6px 14px;border:none;border-radius:6px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;font-size:12px;">保存</button>
-    <span id="dsKeyStatus" style="font-size:12px;"></span>
+<div id="settingsPanel">
+  <div id="settingsOverlay" onclick="toggleSettings()"></div>
+  <div id="settingsModal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:18px;">设置</h3>
+      <button onclick="toggleSettings()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-light);padding:4px 8px;">✕</button>
+    </div>
+    <div>
+      <label style="font-weight:600;display:block;margin-bottom:6px;font-size:14px;">DeepSeek API 密钥</label>
+      <div style="display:flex;gap:8px;">
+        <input id="deepseekKeyInput" type="password" placeholder="sk-..." value="${deepseekApiKey}" style="flex:1;min-width:150px;padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+        <button onclick="saveDeepSeekKey()" style="padding:8px 18px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">保存</button>
+      </div>
+      <span id="dsKeyStatus" style="font-size:12px;display:block;margin-top:6px;"></span>
+      <p style="color:var(--text-light);margin-top:14px;font-size:12px;line-height:1.6;">用于新题和错题编程题的AI批改与解析。密钥仅保存在本地浏览器，不会上传到服务器。</p>
+    </div>
   </div>
-  <p style="color:var(--text-light);margin-top:6px;font-size:11px;">用于新题批改和解析，密钥仅保存在本地浏览器，不会上传到服务器。</p>
 </div>
 
 <nav id="mainNav">
@@ -1460,24 +1485,52 @@ function wqzSubmitProg() {
   if (!q) return;
   const input = document.getElementById('wqzProgInput');
   if (!input || !input.value.trim()) { alert('请先输入你的答案！'); return; }
+  if (!deepseekApiKey) { alert('请先在设置中配置 DeepSeek API 密钥'); return; }
 
-  // 本地简单批改（去除空白后比较）
-  const userAns = input.value.trim().replace(/\s+/g, '');
-  const stdAns = (q.explanation || q.answer || '').replace(/\s+/g, '');
-  const correct = stdAns && userAns.toLowerCase() === stdAns.toLowerCase();
-
+  const userAns = input.value.trim();
   const result = document.getElementById('wqzProgResult');
+  result.innerHTML = '<span style="color:var(--text-light);">AI 批改中...</span>';
   result.classList.add('show');
   result.classList.remove('correct-ans', 'wrong-ans');
-  result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
-  result.innerHTML = correct
-    ? `<span class="label">✅ 回答正确！</span>`
-    : `<span class="label">❌ 回答错误</span><br>${q.explanation ? '参考答案：' + (q.answer || q.explanation) : ''}`;
-  result.innerHTML += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
-    <button class="btn-check" onclick="wqzExplain()">🤖 AI 讲解</button>
-    <button class="btn-show-answer" onclick="wqzNext(${correct})" style="font-size:12px;">下一题 →</button>
-  </div>`;
-  wrongQuizLastCorrect = correct;
+
+  fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: '你是微机原理助教，批改汇编编程题。\n输出JSON：{"correct":true/false,"marked":"学生答案逐行复制+;注释，错误指令用<red></red>标记","correctCode":"标准答案每行<br>分隔"}' },
+        { role: 'user', content: `题目：${q.question}\n标准答案：\n${q.answer || q.explanation || ''}\n学生答案：\n${userAns}\n\n逐行对比，指令顺序不同但等效也算对。` }
+      ],
+      temperature: 0.1,
+      max_tokens: 500
+    })
+  })
+  .then(resp => resp.json())
+  .then(data => {
+    if (data.error) { result.innerHTML = 'API 错误'; return; }
+    const content = data.choices?.[0]?.message?.content || '';
+    let correct = false, marked = '', correctCode = '';
+    try {
+      const j = JSON.parse(content.replace(/```json/g,'').replace(/```/g,'').trim());
+      correct = j.correct;
+      marked = j.marked || '';
+      correctCode = j.correctCode || '';
+    } catch(e) { correct = false; marked = '批改失败'; }
+
+    result.classList.add(correct ? 'correct-ans' : 'wrong-ans');
+    const displayMarked = fmtMarked(marked);
+    result.innerHTML = correct
+      ? `✅ 正确`
+      : `<div style="font-family:monospace;font-size:13px;line-height:1.8;white-space:pre-wrap;">${displayMarked}</div>
+         <div style="margin-top:6px;font-size:12px;color:var(--success);font-family:monospace;white-space:pre-wrap;">标准答案：\n${correctCode}</div>`;
+    result.innerHTML += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="btn-check" onclick="wqzExplain()">🤖 AI 讲解</button>
+      <button class="btn-show-answer" onclick="wqzNext(${correct})" style="font-size:12px;">下一题 →</button>
+    </div>`;
+    wrongQuizLastCorrect = correct;
+  })
+  .catch(e => { result.innerHTML = '网络错误: ' + e.message; });
 }
 
 function wqzShowProgAns() {
@@ -1500,6 +1553,8 @@ async function wqzExplain() {
   } else if (q.type === 'fill') {
     const ansMatch = q.explanation && q.explanation.match(/[答案|正确答案][：:]\s*([^。；。]+)/);
     prompt = `题目：${q.question}\n正确答案：${ansMatch ? ansMatch[1] : (q.explanation || '')}\n请详细讲解这道填空题的知识点。`;
+  } else if (q.type === 'prog') {
+    prompt = `题目：${q.question}\n参考答案：\n${q.answer || q.explanation || ''}\n请逐条讲解每条指令的作用，用;注释风格写在指令后面。`;
   } else {
     prompt = `题目：${q.question}\n参考答案：${q.answer || q.explanation || ''}\n请详细讲解这道题的知识点和解题思路。`;
   }
@@ -2332,7 +2387,7 @@ function toggleQuizHistory() {
 // ============================================================
 function toggleSettings() {
   const panel = document.getElementById('settingsPanel');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  panel.classList.toggle('show');
 }
 
 function saveDeepSeekKey() {
@@ -2342,12 +2397,15 @@ function saveDeepSeekKey() {
   const status = document.getElementById('dsKeyStatus');
   status.textContent = key ? '✅ 已保存' : '⚠️ 未设置密钥';
   status.style.color = key ? 'var(--success)' : 'var(--warning)';
-  setTimeout(() => { status.textContent = ''; }, 3000);
+  setTimeout(() => {
+    status.textContent = '';
+    if (key) toggleSettings();
+  }, 1200);
 }
 
 async function callDeepSeek(prompt) {
   if (!deepseekApiKey) {
-    alert('请先设置 DeepSeek API 密钥（点击标题旁的 ⚙️ 按钮）');
+    alert('请先设置 DeepSeek API 密钥（点击标题旁的 ⚙️ 图标）');
     return null;
   }
   try {
@@ -2721,7 +2779,7 @@ setTimeout(checkForUpdate, 3000);
 
 // Show DeepSeek key status hint in settings if key is empty
 if (!deepseekApiKey && document.getElementById('dsKeyStatus')) {
-  document.getElementById('dsKeyStatus').textContent = '⚠️ 未设置密钥，新题无法AI批改';
+  document.getElementById('dsKeyStatus').textContent = '⚠️ 未设置密钥，新题和错题编程题无法AI批改';
   document.getElementById('dsKeyStatus').style.color = 'var(--warning)';
 }
 </script>
