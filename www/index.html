@@ -324,12 +324,19 @@ main.active { display: block; }
       <button onclick="toggleSettings()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-light);padding:4px 8px;">✕</button>
     </div>
     <div>
-      <label style="font-weight:600;display:block;margin-bottom:6px;font-size:14px;">DeepSeek API 密钥</label>
+      <label style="font-weight:600;display:block;margin-bottom:6px;font-size:14px;">AI 服务商</label>
+      <select id="aiProviderSelect" onchange="onAiProviderChange()" style="width:100%;padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;background:#fff;">
+        <option value="deepseek">DeepSeek</option>
+        <option value="openai">OpenAI</option>
+        <option value="siliconflow">SiliconFlow</option>
+        <option value="groq">Groq</option>
+      </select>
+      <label id="aiKeyLabel" style="font-weight:600;display:block;margin-bottom:6px;font-size:14px;">API 密钥</label>
       <div style="display:flex;gap:8px;">
-        <input id="deepseekKeyInput" type="password" placeholder="sk-..." value="${deepseekApiKey}" style="flex:1;min-width:150px;padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
-        <button onclick="saveDeepSeekKey()" style="padding:8px 18px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">保存</button>
+        <input id="aiKeyInput" type="password" placeholder="sk-..." style="flex:1;min-width:150px;padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;">
+        <button onclick="saveAiSettings()" style="padding:8px 18px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;">保存</button>
       </div>
-      <span id="dsKeyStatus" style="font-size:12px;display:block;margin-top:6px;"></span>
+      <span id="aiKeyStatus" style="font-size:12px;display:block;margin-top:6px;"></span>
       <p style="color:var(--text-light);margin-top:14px;font-size:12px;line-height:1.6;">用于新题和错题编程题的AI批改与解析。密钥仅保存在本地浏览器，不会上传到服务器。</p>
     </div>
   </div>
@@ -1018,8 +1025,20 @@ let answerStats = {};
 // Wrong quiz correct count (per question: how many times answered correctly in wrong quiz)
 let wrongCorrectCount = {};
 
-// DeepSeek API key
-let deepseekApiKey = localStorage.getItem('mc_deepseek_key') || '';
+// AI provider config
+const AI_PROVIDERS = {
+  deepseek:    { name: 'DeepSeek',     baseUrl: 'https://api.deepseek.com',           defaultModel: 'deepseek-chat' },
+  openai:      { name: 'OpenAI',       baseUrl: 'https://api.openai.com/v1',           defaultModel: 'gpt-4o-mini' },
+  siliconflow: { name: 'SiliconFlow',  baseUrl: 'https://api.siliconflow.cn/v1',        defaultModel: 'deepseek-ai/DeepSeek-V3' },
+  groq:        { name: 'Groq',         baseUrl: 'https://api.groq.com/openai/v1',      defaultModel: 'llama-3.3-70b-versatile' }
+};
+let aiProvider = localStorage.getItem('mc_ai_provider') || 'deepseek';
+let deepseekApiKey = localStorage.getItem('mc_ai_key_' + aiProvider) || '';
+// Backward compat: migrate legacy mc_deepseek_key
+if (!deepseekApiKey) {
+  const legacy = localStorage.getItem('mc_deepseek_key');
+  if (legacy) { deepseekApiKey = legacy; localStorage.setItem('mc_ai_key_deepseek', legacy); }
+}
 
 // App version for update checking
 const APP_VERSION = '1.0.21';
@@ -1577,7 +1596,8 @@ function wqzSubmitProg() {
   if (!q) return;
   const input = document.getElementById('wqzProgInput');
   if (!input || !input.value.trim()) { alert('请先输入你的答案！'); return; }
-  if (!deepseekApiKey) { alert('请先在设置中配置 DeepSeek API 密钥'); return; }
+  const curKey = localStorage.getItem('mc_ai_key_' + aiProvider) || deepseekApiKey || '';
+  if (!curKey) { alert('请先在设置中配置 API 密钥'); return; }
 
   const userAns = input.value.trim();
   const result = document.getElementById('wqzProgResult');
@@ -1585,22 +1605,14 @@ function wqzSubmitProg() {
   result.classList.add('show');
   result.classList.remove('correct-ans', 'wrong-ans');
 
-  fetch('https://api.deepseek.com/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: '你是微机原理助教，批改汇编编程题。\n输出JSON：{"correct":true/false,"marked":"学生答案逐行复制+;注释，错误指令用<red></red>标记","correctCode":"标准答案每行<br>分隔"}' },
-        { role: 'user', content: `题目：${q.question}\n标准答案：\n${q.answer || q.explanation || ''}\n学生答案：\n${userAns}\n\n逐行对比，指令顺序不同但等效也算对。` }
-      ],
-      temperature: 0.1,
-      max_tokens: 500
-    })
+  callAI({
+    system: '你是微机原理助教，批改汇编编程题。\n输出JSON：{"correct":true/false,"marked":"学生答案逐行复制+;注释，错误指令用<red></red>标记","correctCode":"标准答案每行<br>分隔"}',
+    messages: [{ role: 'user', content: `题目：${q.question}\n标准答案：\n${q.answer || q.explanation || ''}\n学生答案：\n${userAns}\n\n逐行对比，指令顺序不同但等效也算对。` }],
+    temperature: 0.1,
+    max_tokens: 500
   })
-  .then(resp => resp.json())
   .then(data => {
-    if (data.error) { result.innerHTML = 'API 错误'; return; }
+    if (!data) return;
     const content = data.choices?.[0]?.message?.content || '';
     let correct = false, marked = '', correctCode = '';
     try {
@@ -2370,7 +2382,8 @@ function qzSubmitProg() {
   if (!q) return;
   const input = document.getElementById('qzProgInput');
   if (!input || !input.value.trim()) { alert('请输入你的答案！'); return; }
-  if (!deepseekApiKey) { alert('请先在设置中配置 DeepSeek API 密钥才能使用 AI 批改'); return; }
+  const curKey = localStorage.getItem('mc_ai_key_' + aiProvider) || deepseekApiKey || '';
+  if (!curKey) { alert('请先在设置中配置 API 密钥才能使用 AI 批改'); return; }
 
   const userAnswer = input.value.trim();
 
@@ -2379,22 +2392,14 @@ function qzSubmitProg() {
   result.classList.add('show');
   result.classList.remove('correct-ans', 'wrong-ans');
 
-  fetch('https://api.deepseek.com/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: '你是微机原理助教，批改汇编编程题。\n输出JSON格式：\n{\n  "correct": true/false,\n  "marked": "学生答案的逐行复制+;注释，错误指令用<red></red>标记",\n  "correctCode": "完整标准答案每行<br>分隔"\n}\n要求：\n1. marked 字段逐行复制学生答案，每行后加;注释\n2. 错误的指令用<red>错误指令</red>标记\n3. ;注释写为什么错\n4. correctCode 写标准答案' },
-        { role: 'user', content: `题目：${q.question}\n标准答案：\n${q.answer || ''}\n学生答案：\n${userAnswer}\n\n逐行对比学生答案和标准答案。指令顺序不同但等效也算对。` }
-      ],
-      temperature: 0.1,
-      max_tokens: 500
-    })
+  callAI({
+    system: '你是微机原理助教，批改汇编编程题。\n输出JSON格式：\n{\n  "correct": true/false,\n  "marked": "学生答案的逐行复制+;注释，错误指令用<red></red>标记",\n  "correctCode": "完整标准答案每行<br>分隔"\n}\n要求：\n1. marked 字段逐行复制学生答案，每行后加;注释\n2. 错误的指令用<red>错误指令</red>标记\n3. ;注释写为什么错\n4. correctCode 写标准答案',
+    messages: [{ role: 'user', content: `题目：${q.question}\n标准答案：\n${q.answer || ''}\n学生答案：\n${userAnswer}\n\n逐行对比学生答案和标准答案。指令顺序不同但等效也算对。` }],
+    temperature: 0.1,
+    max_tokens: 500
   })
-  .then(r => r.json())
   .then(data => {
-    if (data.error) { result.innerHTML = 'API 错误'; return; }
+    if (!data) return;
     const content = data.choices?.[0]?.message?.content || '';
     let correct = false, marked = '', correctCode = '';
     try {
@@ -2434,7 +2439,8 @@ async function qzSubmitMem(quizIdx) {
   const q = quizQuestions[quizIdx];
   if (!q || !q.subs) return;
   if (!quizMemAnswers[quizIdx]) quizMemAnswers[quizIdx] = {};
-  if (!deepseekApiKey) { alert('请先在设置中配置 DeepSeek API 密钥'); return; }
+  const curKey = localStorage.getItem('mc_ai_key_' + aiProvider) || deepseekApiKey || '';
+  if (!curKey) { alert('请先在设置中配置 API 密钥'); return; }
   const qid = 'qzmem' + quizIdx;
 
   const userParts = [];
@@ -2464,21 +2470,13 @@ async function qzSubmitMem(quizIdx) {
   }).join('\n');
 
   try {
-    const resp = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: '你是微机原理助教，批改存储器扩展电路分析题。逐题判断对错，地址范围和容量计算需精确。输出JSON：{"correct":true/false,"marked":"逐题标注,每题一行: Q1 ✓ 或 Q1 ✗(原因),错误用<red></red>标记","correctCode":"各题正确答案"}' },
-          { role: 'user', content: `电路描述：${q.question}\n标准答案：\n${stdParts}\n学生答案：\n${userAnsText}\n\n逐题批改，地址范围和数值计算严格对照标准答案。` }
-        ],
-        temperature: 0.1,
-        max_tokens: 500
-      })
+    const data = await callAI({
+      system: '你是微机原理助教，批改存储器扩展电路分析题。逐题判断对错，地址范围和容量计算需精确。输出JSON：{"correct":true/false,"marked":"逐题标注,每题一行: Q1 ✓ 或 Q1 ✗(原因),错误用<red></red>标记","correctCode":"各题正确答案"}',
+      messages: [{ role: 'user', content: `电路描述：${q.question}\n标准答案：\n${stdParts}\n学生答案：\n${userAnsText}\n\n逐题批改，地址范围和数值计算严格对照标准答案。` }],
+      temperature: 0.1,
+      max_tokens: 500
     });
-    const data = await resp.json();
-    if (data.error) { result.innerHTML = 'API 错误'; return; }
+    if (!data) return;
     const content = data.choices?.[0]?.message?.content || '';
     let correct = false, marked = '', correctCode = '';
     try {
@@ -2546,11 +2544,16 @@ function showQuizResult() {
   if (quizTimer) { clearInterval(quizTimer); quizTimer = null; }
   const timeStr = `${Math.floor(quizTime/60)}分${quizTime%60}秒`;
   let stars = pct >= 90 ? '⭐⭐⭐ 优秀！' : pct >= 70 ? '⭐⭐ 不错！' : pct >= 50 ? '⭐ 继续加油！' : '💪 需要多复习哦！';
-  // Save to history
+  // Save to history (with full question data)
   let history = JSON.parse(localStorage.getItem('mc_quiz_history') || '[]');
-  history.unshift({ score: quizScore, total, pct, time: quizTime, date: Date.now() });
-  if (history.length > 50) history = history.slice(0, 50);
-  localStorage.setItem('mc_quiz_history', JSON.stringify(history));
+  history.unshift({
+    score: quizScore, total, pct, time: quizTime, date: Date.now(),
+    questions: quizQuestions,
+    analysis: quizAnalysis,
+    answered: quizAnswered
+  });
+  if (history.length > 20) history = history.slice(0, 20);
+  try { localStorage.setItem('mc_quiz_history', JSON.stringify(history)); } catch(e) {} // QuotaExceeded guard
   document.getElementById('quizArea').innerHTML = `
     <div class="card quiz-result">
       <div class="score">${pct}%</div>
@@ -2561,32 +2564,42 @@ function showQuizResult() {
         <button class="btn-show-answer" onclick="var d=document.getElementById('quizDetail');d.style.display=d.style.display==='block'?'none':'block'" style="padding:12px 24px;border-radius:var(--radius);font-weight:600;cursor:pointer;">查看详情</button>
       </div>
       <div id="quizDetail" style="display:none;margin-top:16px;font-size:13px;text-align:left;">
-        ${quizQuestions.map((q, i) => {
-          const a = quizAnalysis?.[i];
-          let extra = '';
-          if (q.type === 'prog') {
-            if (a && a.marked) {
-              const markedHtml = fmtMarked(a.marked);
-              extra += `<div style="font-family:monospace;font-size:12px;margin:4px 0;white-space:pre-wrap;">${markedHtml}</div>`;
-            }
-            extra += `<div style="font-family:monospace;font-size:12px;color:var(--success);margin:2px 0;white-space:pre-wrap;">✅ 标准答案：\n${a?.correctCode || q.answer || ''}</div>`;
-          } else if (q.type === 'mem' && q.subs) {
-            extra += '<div style="font-size:12px;margin:4px 0;">' + q.subs.map((sub, si) => {
-              const ans = sub.type === 'choice' ? sub.options[sub.answer] : sub.blanks.join('、');
-              return '<b>Q' + (si+1) + ':</b> ' + ans + (sub.explanation ? ' — ' + sub.explanation : '');
-            }).join('<br>') + '</div>';
-          } else {
-            extra += `<div style="margin:4px 0 2px;color:var(--text-light);">${q.explanation || (q.type==='fill' ? '答案：'+(q.blanks?.join('、')||'') : '')}</div>`;
-          }
-          return `<div style="padding:8px 0;border-bottom:1px solid var(--border);">
-            <div>${i+1}. ${quizAnswered[i] ? '✅' : '❌'} ${(q.question||q.text||'').substring(0, 50)}${(q.question||q.text||'').length>50?'...':''}</div>
-            ${extra}
-          </div>`;
-        }).join('')}
+        ${renderQuizDetailHtml(quizQuestions, quizAnalysis, quizAnswered)}
         <div style="padding:6px 0;color:var(--text-light);font-size:12px;">答错的题已自动加入错题本</div>
       </div>
     </div>
   `;
+}
+
+function renderQuizDetailHtml(questions, analysis, answered) {
+  if (!questions || !answered) return '';
+  return questions.map((q, i) => {
+    const a = analysis?.[i];
+    let extra = '';
+    if (q.type === 'prog') {
+      if (a && a.userAnswer) {
+        extra += '<div style="font-size:12px;color:var(--text-secondary);margin:2px 0;">你的答案：<span style="font-family:monospace;">' + a.userAnswer + '</span></div>';
+      }
+      if (a && a.marked) {
+        extra += '<div style="font-family:monospace;font-size:12px;margin:4px 0;white-space:pre-wrap;">' + fmtMarked(a.marked) + '</div>';
+      }
+      extra += '<div style="font-family:monospace;font-size:12px;color:var(--success);margin:2px 0;white-space:pre-wrap;">✅ 标准答案：\n' + (a?.correctCode || q.answer || '') + '</div>';
+    } else if (q.type === 'mem' && q.subs) {
+      extra += '<div style="font-size:12px;margin:4px 0;">' + q.subs.map((sub, si) => {
+        const ans = sub.type === 'choice' ? sub.options[sub.answer] : sub.blanks.join('、');
+        return '<b>Q' + (si+1) + ':</b> ' + ans + (sub.explanation ? ' — ' + sub.explanation : '');
+      }).join('<br>') + '</div>';
+    } else if (q.type === 'fill') {
+      extra += '<div style="margin:4px 0 2px;color:var(--text-light);font-size:12px;">答案：' + (q.blanks?.join('、') || '') + '</div>';
+      extra += '<div style="margin:4px 0 2px;color:var(--text-light);font-size:12px;">' + (q.explanation || '') + '</div>';
+    } else {
+      extra += '<div style="margin:4px 0 2px;color:var(--text-light);font-size:12px;">' + (q.explanation || '') + '</div>';
+    }
+    return '<div style="padding:8px 0;border-bottom:1px solid var(--border);">' +
+      '<div>' + (i+1) + '. ' + (answered[i] ? '✅' : '❌') + ' ' + (q.question||q.text||'').substring(0, 50) + ((q.question||q.text||'').length>50?'...':'') + '</div>' +
+      extra +
+      '</div>';
+  }).join('');
 }
 
 function resetQuiz() {
@@ -2595,6 +2608,11 @@ function resetQuiz() {
   document.getElementById('quizArea').style.display = 'none';
   qzChoiceSelected = null;
   qzTFSelected = null;
+}
+
+function toggleHistDetail(el) {
+  const detail = el.parentNode.querySelector('div[id^="histDet_"]');
+  if (detail) detail.style.display = detail.style.display === 'block' ? 'none' : 'block';
 }
 
 function toggleQuizHistory() {
@@ -2606,18 +2624,25 @@ function toggleQuizHistory() {
     container.style.display = 'block';
     return;
   }
-  let html = '<div class="card" style="padding:16px;"><h4 style="margin-bottom:12px;">📊 考试历史</h4>';
-  html += '<div style="max-height:360px;overflow-y:auto;">';
+  let html = '<div class="card" style="padding:16px;"><h4 style="margin-bottom:12px;">📊 考试历史（点击展开详情）</h4>';
+  html += '<div style="max-height:480px;overflow-y:auto;">';
   history.forEach((h, i) => {
     const d = new Date(h.date);
     const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
     const timeStr = `${Math.floor(h.time/60)}:${String(h.time%60).padStart(2,'0')}`;
-    html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:${i<history.length-1?'1px solid var(--border)':'none'}">
-      <span style="font-size:18px;">${h.pct>=90?'🌟':h.pct>=70?'⭐':'📝'}</span>
-      <span style="font-weight:700;font-size:18px;min-width:50px;">${h.pct}%</span>
-      <span style="color:var(--text-light);font-size:13px;">${h.score}/${h.total}题</span>
-      <span style="color:var(--text-light);font-size:12px;">⏱ ${timeStr}</span>
-      <span style="margin-left:auto;color:var(--text-light);font-size:11px;">${dateStr}</span>
+    const hasDetail = h.questions && h.answered;
+    html += `<div style="border-bottom:${i<history.length-1?'1px solid var(--border)':'none'}">
+      <div onclick="${hasDetail ? 'toggleHistDetail(this)' : ''}" style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:${hasDetail?'pointer':'default'};${hasDetail?'transition:background .15s;':''}">
+        <span style="font-size:18px;">${h.pct>=90?'🌟':h.pct>=70?'⭐':'📝'}</span>
+        <span style="font-weight:700;font-size:18px;min-width:50px;">${h.pct}%</span>
+        <span style="color:var(--text-light);font-size:13px;">${h.score}/${h.total}题</span>
+        <span style="color:var(--text-light);font-size:12px;">⏱ ${timeStr}</span>
+        <span style="margin-left:auto;color:var(--text-light);font-size:11px;">${dateStr}</span>
+        ${hasDetail ? '<span style="color:var(--text-light);font-size:10px;">▼</span>' : ''}
+      </div>
+      <div id="histDet_${i}" style="display:none;padding:4px 12px 12px;font-size:13px;background:#f8fafc;border-radius:8px;margin-bottom:6px;">
+        ${hasDetail ? renderQuizDetailHtml(h.questions, h.analysis, h.answered) : ''}
+      </div>
     </div>`;
   });
   html += '</div></div>';
@@ -2626,18 +2651,33 @@ function toggleQuizHistory() {
 }
 
 // ============================================================
-// DeepSeek API Integration
+// AI API Integration
 // ============================================================
 function toggleSettings() {
   const panel = document.getElementById('settingsPanel');
   panel.classList.toggle('show');
+  if (panel.classList.contains('show')) {
+    const savedProvider = localStorage.getItem('mc_ai_provider') || 'deepseek';
+    document.getElementById('aiProviderSelect').value = savedProvider;
+    onAiProviderChange();
+  }
+}
+function onAiProviderChange() {
+  const provider = document.getElementById('aiProviderSelect').value;
+  const savedKey = localStorage.getItem('mc_ai_key_' + provider) || '';
+  document.getElementById('aiKeyInput').value = savedKey;
+  document.getElementById('aiKeyLabel').textContent = AI_PROVIDERS[provider].name + ' API 密钥';
+  document.getElementById('aiKeyInput').placeholder = AI_PROVIDERS[provider].name === 'DeepSeek' ? 'sk-...' : '输入 API 密钥';
 }
 
-function saveDeepSeekKey() {
-  const key = document.getElementById('deepseekKeyInput').value.trim();
+function saveAiSettings() {
+  const provider = document.getElementById('aiProviderSelect').value;
+  const key = document.getElementById('aiKeyInput').value.trim();
+  aiProvider = provider;
   deepseekApiKey = key;
-  localStorage.setItem('mc_deepseek_key', key);
-  const status = document.getElementById('dsKeyStatus');
+  localStorage.setItem('mc_ai_provider', provider);
+  localStorage.setItem('mc_ai_key_' + provider, key);
+  const status = document.getElementById('aiKeyStatus');
   status.textContent = key ? '✅ 已保存' : '⚠️ 未设置密钥';
   status.style.color = key ? 'var(--success)' : 'var(--warning)';
   setTimeout(() => {
@@ -2646,37 +2686,50 @@ function saveDeepSeekKey() {
   }, 1200);
 }
 
-async function callDeepSeek(prompt) {
-  if (!deepseekApiKey) {
-    alert('请先设置 DeepSeek API 密钥（点击标题旁的 ⚙️ 图标）');
+async function callAI({ system, messages, temperature = 0.1, max_tokens = 512, model } = {}) {
+  const provider = localStorage.getItem('mc_ai_provider') || 'deepseek';
+  const config = AI_PROVIDERS[provider];
+  if (!config) { alert('未知 AI 服务商'); return null; }
+  const apiKey = localStorage.getItem('mc_ai_key_' + provider) || '';
+  if (!apiKey) {
+    alert('请先在设置中配置 ' + config.name + ' API 密钥（点击标题旁的 ⚙️ 图标）');
     return null;
   }
+  const body = {
+    model: model || config.defaultModel,
+    messages: [],
+    temperature, max_tokens
+  };
+  if (system) body.messages.push({ role: 'system', content: system });
+  if (messages) body.messages.push(...messages);
   try {
-    const resp = await fetch('https://api.deepseek.com/chat/completions', {
+    const resp = await fetch(config.baseUrl + '/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: '你是一位微机原理助教，批改学生的答案。请判断对错、给出正确答案和详细解析。回答格式：{"correct": true/false, "answer": "正确答案", "explanation": "解析内容"}' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.1,
-        max_tokens: 512
-      })
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify(body)
     });
     const data = await resp.json();
-    if (data.error) { alert('API 错误: ' + data.error.message); return null; }
-    const content = data.choices?.[0]?.message?.content || '';
-    try {
-      return JSON.parse(content.replace(/```json/g,'').replace(/```/g,'').trim());
-    } catch(e) {
-      // Return raw text if not JSON
-      return { correct: null, answer: '', explanation: content };
-    }
+    if (data.error) { alert(config.name + ' API 错误: ' + (data.error.message || JSON.stringify(data.error))); return null; }
+    return data;
   } catch(e) {
     alert('网络错误: ' + e.message);
     return null;
+  }
+}
+
+// Legacy wrapper for wqzExplain (callDeepSeek kept for backward compat)
+async function callDeepSeek(prompt) {
+  const data = await callAI({
+    system: '你是一位微机原理助教，批改学生的答案。请判断对错、给出正确答案和详细解析。回答格式：{"correct": true/false, "answer": "正确答案", "explanation": "解析内容"}',
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.1, max_tokens: 512
+  });
+  if (!data) return null;
+  const content = data.choices?.[0]?.message?.content || '';
+  try {
+    return JSON.parse(content.replace(/```json/g,'').replace(/```/g,'').trim());
+  } catch(e) {
+    return { correct: null, answer: '', explanation: content };
   }
 }
 
@@ -2728,7 +2781,8 @@ async function generateNewQuestions() {
     }
   }
   // AI generation when still not enough questions
-  if (deepseekApiKey && genType !== 'random') {
+  const curAiKey = localStorage.getItem('mc_ai_key_' + aiProvider) || deepseekApiKey || '';
+  if (curAiKey && genType !== 'random') {
     if (!sessionAiPool[genType]) {
       container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-light);font-size:14px;">🤖 AI 正在生成题目，请稍候...</div>';
       const aiQs = await aiGenerateQuestions(genType);
@@ -2899,21 +2953,13 @@ async function aiGenerateQuestions(type) {
   if (!examples || examples.length === 0) return null;
 
   try {
-    const resp = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: tpl.system },
-          { role: 'user', content: tpl.user(examples.slice(0, 2)) }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000
-      })
+    const data = await callAI({
+      system: tpl.system,
+      messages: [{ role: 'user', content: tpl.user(examples.slice(0, 2)) }],
+      temperature: 0.7,
+      max_tokens: 2000
     });
-    const data = await resp.json();
-    if (data.error) return null;
+    if (!data) return null;
     const content = data.choices?.[0]?.message?.content || '';
     const parsed = JSON.parse(content.replace(/```json/g,'').replace(/```/g,'').trim());
     if (Array.isArray(parsed)) return parsed;
@@ -3039,7 +3085,8 @@ async function newqGradeProg(nid) {
   if (!d) return;
   const input = document.getElementById(`${nid}_input`);
   if (!input || !input.value.trim()) { alert('请先输入你的答案！'); return; }
-  if (!deepseekApiKey) { alert('请先在设置中配置 DeepSeek API 密钥'); return; }
+  const curKey = localStorage.getItem('mc_ai_key_' + aiProvider) || deepseekApiKey || '';
+  if (!curKey) { alert('请先在设置中配置 API 密钥'); return; }
 
   const userAns = input.value.trim();
   const result = document.getElementById(`${nid}_result`);
@@ -3047,21 +3094,13 @@ async function newqGradeProg(nid) {
   result.classList.add('show');
   result.classList.remove('correct-ans', 'wrong-ans');
 
-  const resp = await fetch('https://api.deepseek.com/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: '你是微机原理助教，批改汇编编程题。\n输出JSON：{"correct":true/false,"marked":"学生答案逐行复制+;注释，错误指令用<red></red>标记","correctCode":"标准答案每行<br>分隔"}' },
-        { role: 'user', content: `题目：${d.question}\n标准答案：\n${d.answer || ''}\n学生答案：\n${userAns}\n\n逐行对比，指令顺序不同但等效也算对。` }
-      ],
-      temperature: 0.1,
-      max_tokens: 500
-    })
+  const data = await callAI({
+    system: '你是微机原理助教，批改汇编编程题。\n输出JSON：{"correct":true/false,"marked":"学生答案逐行复制+;注释，错误指令用<red></red>标记","correctCode":"标准答案每行<br>分隔"}',
+    messages: [{ role: 'user', content: `题目：${d.question}\n标准答案：\n${d.answer || ''}\n学生答案：\n${userAns}\n\n逐行对比，指令顺序不同但等效也算对。` }],
+    temperature: 0.1,
+    max_tokens: 500
   });
-  const data = await resp.json();
-  if (data.error) { result.innerHTML = 'API 错误'; return; }
+  if (!data) return;
   const content = data.choices?.[0]?.message?.content || '';
   let correct = false, marked = '', correctCode = '';
   try {
@@ -3098,10 +3137,10 @@ async function newqGradeMem(nid) {
   const d = newqData[nid];
   if (!d || !d.subs) return;
   if (!newqMemAnswers[nid]) newqMemAnswers[nid] = {};
-  if (!deepseekApiKey) { alert('请先在设置中配置 DeepSeek API 密钥'); return; }
+  const curKey = localStorage.getItem('mc_ai_key_' + aiProvider) || deepseekApiKey || '';
+  if (!curKey) { alert('请先在设置中配置 API 密钥'); return; }
 
   const subs = d.subs;
-  // Collect user answers per sub-question
   const userParts = [];
   subs.forEach((sub, si) => {
     if (sub.type === 'choice') {
@@ -3129,21 +3168,13 @@ async function newqGradeMem(nid) {
   }).join('\n');
 
   try {
-    const resp = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: '你是微机原理助教，批改存储器扩展电路分析题。逐题判断对错，地址范围和容量计算需精确。输出JSON：{"correct":true/false,"marked":"逐题标注,每题一行: Q1 ✓ 或 Q1 ✗(原因),错误用<red></red>标记","correctCode":"各题正确答案"}' },
-          { role: 'user', content: `电路描述：${d.question}\n标准答案：\n${stdParts}\n学生答案：\n${userAnsText}\n\n逐题批改，地址范围和数值计算严格对照标准答案。` }
-        ],
-        temperature: 0.1,
-        max_tokens: 500
-      })
+    const data = await callAI({
+      system: '你是微机原理助教，批改存储器扩展电路分析题。逐题判断对错，地址范围和容量计算需精确。输出JSON：{"correct":true/false,"marked":"逐题标注,每题一行: Q1 ✓ 或 Q1 ✗(原因),错误用<red></red>标记","correctCode":"各题正确答案"}',
+      messages: [{ role: 'user', content: `电路描述：${d.question}\n标准答案：\n${stdParts}\n学生答案：\n${userAnsText}\n\n逐题批改，地址范围和数值计算严格对照标准答案。` }],
+      temperature: 0.1,
+      max_tokens: 500
     });
-    const data = await resp.json();
-    if (data.error) { result.innerHTML = 'API 错误'; return; }
+    if (!data) return;
     const content = data.choices?.[0]?.message?.content || '';
     let correct = false, marked = '', correctCode = '';
     try {
@@ -3191,32 +3222,24 @@ function makeExplainPrompt(d) {
 async function newqExplain(nid) {
   const d = newqData[nid];
   if (!d) return;
-  if (!deepseekApiKey) { alert('请先在设置中配置 DeepSeek API 密钥'); return; }
+  const curKey = localStorage.getItem('mc_ai_key_' + aiProvider) || deepseekApiKey || '';
+  if (!curKey) { alert('请先在设置中配置 API 密钥'); return; }
 
   const result = document.getElementById(`${nid}_result`);
   const { prompt, system } = makeExplainPrompt(d);
 
-  // Check if grade was already done - if so, append explanation
   const hasGrade = result.classList.contains('correct-ans') || result.classList.contains('wrong-ans');
 
   result.innerHTML = (hasGrade ? result.innerHTML + '<br>' : '') + '<span style="color:var(--text-light);font-size:13px;">🤖 AI 讲解中...</span>';
   result.classList.add('show');
 
-  const resp = await fetch('https://api.deepseek.com/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${deepseekApiKey}` },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.3,
-      max_tokens: 512
-    })
+  const data = await callAI({
+    system,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.3,
+    max_tokens: 512
   });
-  const data = await resp.json();
-  if (data.error) { alert('API 错误: ' + data.error.message); return; }
+  if (!data) return;
   const content = data.choices?.[0]?.message?.content || '';
 
   // Remove loading and append explanation
@@ -3246,10 +3269,12 @@ setQuizCount(10);
 // Check for updates on load (with delay to not block rendering)
 setTimeout(checkForUpdate, 3000);
 
-// Show DeepSeek key status hint in settings if key is empty
-if (!deepseekApiKey && document.getElementById('dsKeyStatus')) {
-  document.getElementById('dsKeyStatus').textContent = '⚠️ 未设置密钥，新题和错题编程题无法AI批改';
-  document.getElementById('dsKeyStatus').style.color = 'var(--warning)';
+// Show AI key status hint in settings if key is empty
+const curProvider = localStorage.getItem('mc_ai_provider') || 'deepseek';
+const curKey = localStorage.getItem('mc_ai_key_' + curProvider) || localStorage.getItem('mc_deepseek_key') || '';
+if (!curKey && document.getElementById('aiKeyStatus')) {
+  document.getElementById('aiKeyStatus').textContent = '⚠️ 未设置密钥，新题和错题编程题无法AI批改';
+  document.getElementById('aiKeyStatus').style.color = 'var(--warning)';
 }
 </script>
 </body>
