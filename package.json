@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build:notes": "node scripts/build-notes.js",
+    "serve": "node scripts/serve.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

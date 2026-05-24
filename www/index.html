@@ -305,6 +305,81 @@ main.active { display: block; }
   animation:modalIn .25s ease;
 }
 @keyframes modalIn { from { opacity:0;transform:translate(-50%,-48%) scale(0.96); } to { opacity:1;transform:translate(-50%,-50%) scale(1); } }
+
+input.cloze-input {
+  display: inline-block;
+  min-width: 48px;
+  padding: 2px 8px;
+  margin: 0 2px;
+  border: none;
+  border-bottom: 2.5px solid #cbd5e1;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  transition: background-color .18s, border-color .18s;
+}
+input.cloze-input:focus { border-bottom-color: var(--primary); background: rgba(74,108,247,0.04); }
+input.cloze-input.cloze-pending {
+  border-bottom-color: var(--warning);
+  background: rgba(245, 158, 11, 0.06);
+  animation: clozePulse 1.6s ease-in-out infinite;
+}
+@keyframes clozePulse { 0%,100% { background: rgba(245,158,11,0.06);} 50% { background: rgba(245,158,11,0.18);} }
+input.cloze-input.cloze-correct {
+  border-bottom-color: var(--success);
+  background: var(--success-light);
+  color: var(--success);
+  font-weight: 600;
+}
+input.cloze-input.cloze-wrong {
+  background: #fef08a !important;
+  border-bottom-color: var(--warning);
+  color: #92400e;
+  font-weight: 600;
+  cursor: help;
+}
+
+.notes-table-wrap { overflow-x: auto; margin: 12px 0; }
+table.notes-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+table.notes-table th, table.notes-table td { border: 1px solid var(--border); padding: 6px 10px; vertical-align: top; }
+table.notes-table thead th { background: var(--primary-light); color: var(--primary); }
+pre.asm-code {
+  background: #1e293b; color: #e2e8f0;
+  padding: 10px 14px; border-radius: 8px; font-family: 'Cascadia Code','Consolas',monospace;
+  font-size: 13px; line-height: 1.6; overflow-x: auto; margin: 8px 0;
+}
+.notes-subsection { margin: 14px 0 6px; }
+.notes-subsection > h3 {
+  font-size: 15px; color: var(--primary); margin: 14px 0 8px;
+  padding-left: 8px; border-left: 3px solid var(--primary);
+}
+.notes-title-bar { margin-bottom: 14px; padding: 10px 14px; background: var(--primary-light); border-radius: var(--radius-sm); }
+.notes-title-bar h2 { color: var(--primary); font-size: 17px; }
+.notes-title-bar p { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
+
+.cloze-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 14px; }
+.cloze-toolbar button {
+  padding: 7px 14px; border: 1.5px solid var(--border); border-radius: 18px;
+  background: var(--card); font-size: 13px; font-weight: 600; cursor: pointer;
+  color: var(--text-secondary);
+}
+.cloze-toolbar button.active { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+
+.dr-board { background: var(--card); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-md); }
+.dr-day { color: var(--text-light); font-size: 12px; margin-bottom: 12px; }
+.dr-slot { margin-bottom: 18px; padding: 12px; border-radius: var(--radius-sm); background: #f8fafc; opacity: .65; }
+.dr-slot.active { opacity: 1; background: var(--primary-light); }
+.dr-slot h3 { font-size: 14px; margin-bottom: 10px; }
+.dr-progress { font-size: 12px; color: var(--text-light); margin-bottom: 8px; }
+.dr-list { list-style: none; padding: 0; }
+.dr-item { padding: 8px 4px; border-bottom: 1px dashed var(--border); }
+.dr-item:last-child { border-bottom: none; }
+.dr-item label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 14px; }
+.dr-item input[type=checkbox] { margin-top: 3px; flex-shrink: 0; transform: scale(1.2); }
+.dr-item.done .dr-text { text-decoration: line-through; color: var(--text-light); }
+.dr-empty { color: var(--text-light); font-size: 13px; text-align: center; padding: 8px; }
 </style>
 </head>
 <body>
@@ -354,12 +429,15 @@ main.active { display: block; }
 <main id="tabNotes">
   <div class="tab-header">
     <h2>📖 笔记背诵</h2>
-    <p>考试重点速记，展开知识点开始背诵</p>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-      <button id="notesSelfTestBtn" class="btn-show-answer" onclick="toggleNotesSelfTest()" style="padding:6px 16px;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">🔍 挂空自测</button>
-      <span id="selfTestProgress" style="font-size:12px;color:var(--text-light);display:none;align-self:center;"></span>
+    <p>笔记源自动解析，挖空模式下停止输入 5 秒自动评测</p>
+    <div class="cloze-toolbar">
+      <button id="clozeViewBtn" class="active" onclick="setNotesMode('view')">📖 阅读</button>
+      <button id="clozeKeyBtn" onclick="setNotesMode('cloze-key')">🔍 关键挖空</button>
+      <button id="clozeDenseBtn" onclick="setNotesMode('cloze')">💥 高密度挖空</button>
+      <span id="clozeProgress" style="font-size:12px;color:var(--text-light);align-self:center;"></span>
     </div>
   </div>
+  <div id="dailyReviewBoard" style="margin-bottom:18px;"></div>
   <div class="search-box-wrap">
     <input class="search-box" id="notesSearch" placeholder="搜索笔记关键词..." oninput="filterNotes()">
   </div>
@@ -469,535 +547,17 @@ function fmtMarked(t) {
 }
 
 // ============================================================
-// DATA: Notes
+// DATA: 由 build-notes + question-generator 在浏览器加载时注入
 // ============================================================
-const NOTES = [
-  { id: "cpu", icon: "🖥️", color: "#dbeafe", title: "8088 CPU 体系结构",
-    content: `
-<h3>基本特性</h3>
-<ul>
-  <li><span class="key">16位</span>微处理器，<span class="key">8位</span>外部数据总线</li>
-  <li><span class="key">20根</span>地址线（A19~A0），寻址空间 <span class="key">1MB</span>（2²⁰B）</li>
-  <li>采用<span class="key">分段管理</span>方式，每段最大 <span class="key">64KB</span></li>
-</ul>
-<h3>内部结构</h3>
-<ul>
-  <li><span class="key">BIU</span>（总线接口部件）：负责指令预取、总线控制</li>
-  <li><span class="key">EU</span>（执行部件）：负责指令译码和执行</li>
-</ul>
-<h3>物理地址计算</h3>
-<p>物理地址 = <span class="key">段地址 × 16 + 偏移地址</span></p>
-<p>例：CS=1000H，IP=0200H → 物理地址 = 10000H + 0200H = <span class="key">10200H</span></p>
-<h3>内部寄存器（14个16位）</h3>
-<ul>
-  <li><b>通用寄存器</b>：AX（累加器）、BX（基址）、CX（计数）、DX（数据），均可拆成H/L两个8位</li>
-  <li><b>指针/变址</b>：SP（栈顶）、BP（基址→SS）、SI（源变址→DS）、DI（目的变址→DS）</li>
-  <li><b>段寄存器</b>：CS（代码段）、DS（数据段）、SS（堆栈段）、ES（附加段）</li>
-  <li><b>控制</b>：IP（指令指针）、FLAGS（标志寄存器）</li>
-</ul>
-<h3>重要引脚</h3>
-<ul>
-  <li><span class="key">INTR</span>：可屏蔽中断请求（受IF控制）</li>
-  <li><span class="key">NMI</span>：非屏蔽中断请求（不受IF控制）</li>
-  <li><span class="key">RD</span>/<span class="key">WR</span>：读写控制信号（均为<span class="key">输出</span>）</li>
-  <li>地址线20根（不是24根！），数据线8位（不是16位！）</li>
-</ul>
-<h3>堆栈操作</h3>
-<ul>
-  <li>每次操作<span class="key">16位</span>（一个字），<span class="key">后进先出</span></li>
-  <li>PUSH：SP ← SP-2，再写入；POP：先读出，SP ← SP+2</li>
-  <li>默认段寄存器：<span class="key">SS</span></li>
-</ul>
-<h3>标志寄存器 FLAGS</h3>
-<ul>
-  <li><b>状态标志</b>：CF（进位）、PF（奇偶）、AF（辅助进位）、ZF（零）、SF（符号）、OF（溢出）</li>
-  <li><b>控制标志</b>：IF（中断允许）、DF（方向）、TF（单步）</li>
-  <li>逻辑运算（AND/OR/XOR/TEST）执行后 <span class="key">CF=OF=0</span></li>
-</ul>
-<h3>常见指令</h3>
-<ul>
-  <li><span class="code">MOV 目的, 源</span>：不能两个操作数同时为内存</li>
-  <li><span class="code">MOV DS, 1234H</span>：<span class="key">非法</span>！段寄存器不能直接接收立即数</li>
-  <li><span class="code">CMP 目的, 源</span>：执行减法<span class="key">但不修改操作数</span>，只影响标志位</li>
-  <li><span class="code">TEST 目的, 源</span>：逻辑与运算，不修改操作数，只影响标志（ZF/SF/PF）</li>
-  <li><span class="code">JZ/JC</span>条件转移只能<span class="key">段内短转移</span>（-128~+127字节）</li>
-  <li>BP默认段寄存器为<span class="key">SS</span>（堆栈段），BX/SI/DI默认<span class="key">DS</span>（数据段）</li>
-  <li>I/O地址 > FFH 必须用 <span class="key">DX</span> 寄存器间接寻址</li>
-</ul>
-    `.trim()
-  },
-  { id: "int", icon: "🔔", color: "#fce7f3", title: "8259A 中断控制器",
-    content: `
-<h3>基本功能</h3>
-<ul>
-  <li><span class="key">可编程中断控制器</span>，单片可管理 <span class="key">8级</span> 中断（IR0~IR7）</li>
-  <li>N片级联可管理 <span class="key">7N+1</span> 级中断</li>
-  <li>例：3片级联 = 22级；4片 = 29级；1主+8从 = 57级</li>
-  <li>一个主片最多接 <span class="key">8片</span> 从片</li>
-</ul>
-<h3>初始化命令字（ICW）—— 顺序不能变！</h3>
-<ul>
-  <li><b>ICW1</b>：设置触发方式（边沿/电平）、单片/级联、是否需要ICW4</li>
-  <li><b>ICW2</b>：设置中断类型号的<span class="key">高5位</span></li>
-  <li><b>ICW3</b>：主从片级联关系（主片标记IR脚，从片标记自己编号）</li>
-  <li><b>ICW4</b>：8086/88模式、自动EOI、缓冲模式</li>
-</ul>
-<h3>操作命令字（OCW）</h3>
-<ul>
-  <li><b>OCW1</b>：中断屏蔽（屏蔽/开放某级中断）</li>
-  <li><b>OCW2</b>：发送EOI（中断结束命令）</li>
-  <li><b>OCW3</b>：中断查询</li>
-</ul>
-<h3>中断向量</h3>
-<ul>
-  <li>中断向量号 n：0~255，由 INT n 指令中的操作数指定</li>
-  <li>中断向量表地址 = <span class="key">n × 4</span>（段地址固定为 0000H）</li>
-  <li>每个向量占 <span class="key">4字节</span>：IP低→IP高→CS低→CS高</li>
-  <li>向量表范围：<span class="key">00000H~003FFH</span>（1KB，256个向量）</li>
-  <li>例：n=20H → 偏移地址 = 20H × 4 = <span class="key">80H</span></li>
-</ul>
-    `.trim()
-  },
-  { id: "timer", icon: "⏱️", color: "#d1fae5", title: "8253 定时/计数器",
-    content: `
-<h3>基本特性</h3>
-<ul>
-  <li>内含 <span class="key">3个</span> 独立的 <span class="key">16位</span> 计数器（Counter0/1/2）</li>
-  <li>计数方式：<span class="key">减法计数</span></li>
-  <li>每个计数器有3个引脚：<span class="key">CLK</span>（时钟输入）、<span class="key">GATE</span>（门控）、<span class="key">OUT</span>（输出）</li>
-</ul>
-<h3>6种工作方式</h3>
-<ul>
-  <li><b>方式0</b>：计数结束中断（OUT单次正跳变）</li>
-  <li><b>方式1</b>：可编程单稳脉冲</li>
-  <li><b>方式2</b>：频率发生器（OUT连续负脉冲）</li>
-  <li><b>方式3</b>：<span class="key">方波发生器</span>（OUT占空比50%方波）</li>
-  <li><b>方式4</b>：软件触发选通</li>
-  <li><b>方式5</b>：硬件触发选通</li>
-</ul>
-<h3>控制字格式（8位）</h3>
-<p>D7D6: 计数器选择（00=C0, 01=C1, 10=C2）<br>
-D5D4: 读写方式（00=锁存, 01=只低8位, 10=只高8位, <span class="key">11=先低后高</span>）<br>
-D3D2D1: 工作方式（000=0, 001=1, 010=2, 011=3, 100=4, 101=5）<br>
-D0: 计数制（0=二进制, 1=BCD）</p>
-<h3>初始化步骤（必考！）</h3>
-<p><span class="key">① 计算初值 N = f_CLK ÷ f_OUT<br>
-② 构造控制字<br>
-③ 先写控制字到控制字端口<br>
-④ 再写计数初值到计数器端口（先低8位，后高8位）</span></p>
-<h3>端口地址</h3>
-<p>基地址为310H时：<br>
-计数器0=310H, 计数器1=311H, 计数器2=312H, 控制字=<span class="key">313H</span></p>
-<h3>常见考题</h3>
-<p>例：8253基址310H，计数器1，方式3（方波），CLK=1MHz，输出1kHz<br>
-N = 1MHz ÷ 1kHz = <span class="key">1000</span> = 03E8H<br>
-控制字 = 01 11 011 0 = <span class="key">76H</span></p>
-    `.trim()
-  },
-  { id: "parallel", icon: "🔌", color: "#fef3c7", title: "8255 并行接口",
-    content: `
-<h3>基本特性</h3>
-<ul>
-  <li>可编程 <span class="key">并行</span> 接口，数据宽度 <span class="key">8位</span></li>
-  <li>内部3个数据端口：<span class="key">A口、B口、C口</span>（各8位）</li>
-  <li>共有 <span class="key">4个</span> 端口地址（A口、B口、C口、控制字寄存器）</li>
-</ul>
-<h3>端口地址</h3>
-<p>基地址300H时：A口=300H, B口=301H, C口=302H, 控制字=<span class="key">303H</span></p>
-<h3>C口位操作</h3>
-<ul>
-  <li>C口可拆分：上4位（PC7~PC4）和下4位（PC3~PC0）独立控制方向</li>
-</ul>
-<h3>3种工作方式</h3>
-<ul>
-  <li><b>方式0</b>：基本I/O（无握手信号）</li>
-  <li><b>方式1</b>：选通I/O（有握手信号）</li>
-  <li><b>方式2</b>：双向I/O（仅A口支持）</li>
-</ul>
-<h3>控制字区分</h3>
-<ul>
-  <li>方式控制字：<span class="key">D7=1</span> → 设置A/B/C口工作方式和方向</li>
-  <li>C口位控制字：<span class="key">D7=0</span> → 对C口某一位单独置1/清0</li>
-  <li>两者都写入<span class="key">同一个控制字端口</span>，CPU根据D7自动识别</li>
-</ul>
-    `.trim()
-  },
-  { id: "mem", icon: "💾", color: "#ffedd5", title: "存储器扩展",
-    content: `
-<h3>74LS138 译码器</h3>
-<ul>
-  <li>3线-8线译码器：输入 CBA（3位）→ 输出 Y0~Y7（8个）</li>
-  <li>使能条件：G1=1, G2A=G2B=0</li>
-  <li>例：CBA=101 → 二进制5 → 选中 <span class="key">Y5</span>（低电平有效）</li>
-</ul>
-<h3>SRAM 扩展计算</h3>
-<ul>
-  <li>8K×8位芯片：需要 <span class="key">13根</span> 地址线（A12~A0），容量8KB</li>
-  <li>16K×8位芯片：需要 <span class="key">14根</span> 地址线（A13~A0），容量16KB</li>
-  <li>片选由高位地址通过译码器产生</li>
-</ul>
-<h3>典型题目</h3>
-<p><b>题</b>：3片8K×8 SRAM，74LS138译码（G1=1,G2A=G2B=0），Y0/Y1/Y2接片选<br>
-A19~A17=000, A16=C, A15=B, A14=A<br>
-每片容量：<span class="key">8KB</span>，3片共 <span class="key">24KB</span><br>
-Y0(CBA=000)：<span class="key">00000H~01FFFH</span><br>
-Y1(CBA=001)：<span class="key">02000H~03FFFH</span><br>
-Y2(CBA=010)：<span class="key">04000H~05FFFH</span></p>
-<p><b>题</b>：4片16K×8 ROM，首地址C0000H<br>
-每片需要 <span class="key">14根</span> 片内地址线（A13~A0）<br>
-4片总容量 <span class="key">64KB</span><br>
-第1片：<span class="key">C0000H~C3FFFH</span><br>
-第2片：<span class="key">C4000H~C7FFFH</span><br>
-第3+4片：32KB，末地址 <span class="key">CFFFFH</span></p>
-    `.trim()
-  },
-  { id: "serial", icon: "📡", color: "#fce4ec", title: "串行通信",
-    content: `
-<h3>串行异步通信</h3>
-<ul>
-  <li>收发双方使用<span class="key">各自独立时钟</span></li>
-  <li>每个字符前后加起始位和停止位</li>
-  <li>字符帧格式：起始位 + 数据位 + 停止位</li>
-  <li>效率相对较低（每字符有额外起止位开销）</li>
-</ul>
-<h3>串行同步通信</h3>
-<ul>
-  <li>收发双方需要<span class="key">统一时钟源</span></li>
-  <li>以数据块为单位连续传输，用同步字符定界</li>
-  <li><span class="key">效率比异步高</span>（数据块中无需每字符加起止位）</li>
-</ul>
-    `.trim()
-  },
-  { id: "asm", icon: "⚙️", color: "#ede9fe", title: "汇编指令集",
-    content: `
-<h3>数据定义伪指令</h3>
-<ul>
-  <li><span class="code">DB</span>：定义字节（8位）</li>
-  <li><span class="code">DW</span>：定义字（<span class="key">16位</span>）</li>
-  <li><span class="code">DD</span>：定义双字（32位）</li>
-  <li><span class="code">DQ</span>：定义四字（64位）</li>
-</ul>
-<h3>段定义</h3>
-<p>正确格式：<span class="code">段名 SEGMENT ... 段名 ENDS</span></p>
-<h3>常见考点</h3>
-<ul>
-  <li><span class="code">XCHG AX, BX</span>：交换AX和BX内容，<span class="key">不影响标志位</span></li>
-  <li><span class="code">AND AX, BX</span>：逻辑与 → <span class="key">CF=0, OF=0</span>，影响ZF/SF/PF</li>
-  <li><span class="code">OR AL, 80H</span>：将AL最高位置1</li>
-  <li><span class="code">ADC AX, BX</span>：带进位加（AX + BX + CF → AX）</li>
-  <li><span class="code">NOT BX</span>：按位取反，<span class="key">不影响标志位</span></li>
-</ul>
-<h3>寻址方式</h3>
-<ul>
-  <li><span class="code">MOV AX, [2000H]</span>：直接寻址（默认DS段）</li>
-  <li><span class="code">MOV AX, [BP+4]</span>：基址寻址（默认<span class="key">SS</span>段）</li>
-  <li><span class="code">MOV AX, [SI]</span>：变址寻址（默认DS段）</li>
-</ul>
-    `.trim()
-  }
-];
+// 旧版的 const NOTES / const QUESTIONS / const GENERATED_POOL 已删除。
+// 运行时由 js/bridge.js 解析 data/notes.json 后填充：
+//   window.NOTES         = [{id,icon,color,title,content}]  ← 笔记卡片
+//   window.QUESTIONS     = {fillBlank,choice,trueFalse,shortAnswer,programming,comprehensive,memoryExpansion}
+//   window.GENERATED_POOL= {choice, mem}
+let NOTES = [];
+let QUESTIONS = { fillBlank:{title:"",groups:[]}, choice:[], trueFalse:[], shortAnswer:[], programming:[], comprehensive:[], memoryExpansion:[] };
+let GENERATED_POOL = { choice: [], mem: [] };
 
-// ============================================================
-// DATA: Practice Questions
-// ============================================================
-const QUESTIONS = {
-  fillBlank: {
-    title: "填空题",
-    groups: [
-      { title: "第1组：8088 CPU基础", tag: "8088",
-        items: [
-          { blanks: ["16", "8"], text: "8088是____位微处理器，其外部数据总线宽度为____位。" },
-          { blanks: ["20", "A19", "A0", "1MB"], text: "8088共有____根地址线（____到____），可寻址内存空间为____。" },
-          { blanks: ["分段管理", "64KB"], text: "8088采用____方式管理存储器，每段最大容量为____。" },
-          { blanks: ["总线接口部件", "执行部件"], text: "8088内部两大功能部件是____（BIU）和____（EU）。" },
-          { blanks: ["16", "偏移", "10200H"], text: "物理地址 = 段地址 × ____ + ____地址；例如CS=1000H，IP=0200H，物理地址为____。" }
-        ]
-      },
-      { title: "第2组：8259A可编程中断控制器", tag: "8259",
-        items: [
-          { blanks: ["可编程中断控制器", "8", "IR0", "IR7"], text: "8259A是____，单片可管理____级中断，输入引脚为____到____。" },
-          { blanks: ["7N+1", "29"], text: "N片8259A级联可管理中断级数的公式为____；4片级联可管理____级中断。" },
-          { blanks: ["设置中断类型号的高5位"], text: "8259A初始化命令字依次为ICW1、ICW2、ICW3、ICW4，其中ICW2的作用是____。" },
-          { blanks: ["中断屏蔽", "发送EOI", "中断查询"], text: "8259A操作命令字OCW1用于____，OCW2用于____，OCW3用于____。" },
-          { blanks: ["8", "57"], text: "8259A级联时，一个主片最多可连接____片从片；若1主+8从，共可管理____级中断。" }
-        ]
-      },
-      { title: "第3组：8253可编程定时/计数器", tag: "8253",
-        items: [
-          { blanks: ["3", "16", "减法"], text: "8253内部含____个独立的____位计数器，计数方式为____计数。" },
-          { blanks: ["CLK", "GATE", "OUT"], text: "8253每个计数器有3个引脚：____（时钟输入）、____（门控）、____（输出）。" },
-          { blanks: ["6", "0", "5", "方波"], text: "8253共有____种工作方式（方式____到方式____），方式3产生____信号。" },
-          { blanks: ["310H", "313H"], text: "若8253端口基地址为310H，则计数器0端口为____，控制字端口为____。" },
-          { blanks: ["控制字", "计数初值", "低8位", "高8位"], text: "8253初始化时，需先向控制字端口写____，再向计数器端口写____；写16位初值时先写____字节，再写____字节。" }
-        ]
-      },
-      { title: "第4组：8255可编程并行接口", tag: "8255",
-        items: [
-          { blanks: ["并行", "8", "3", "A", "B", "C"], text: "8255是可编程____接口，数据宽度为____位，内部有____个数据端口（____口、____口、____口）。" },
-          { blanks: ["4", "300H", "303H"], text: "8255共有____个端口地址；若基地址为300H，则A口地址为____，控制字端口地址为____。" },
-          { blanks: ["7", "4", "3", "0"], text: "C口可拆分：上4位（PC____到PC____）和下4位（PC____到PC____）可独立控制方向。" },
-          { blanks: ["1", "0"], text: "8255方式控制字最高位D7=____时表示写工作方式；C口位控制字最高位D7=____。" },
-          { blanks: ["3", "基本I/O", "选通I/O", "双向I/O"], text: "8255有____种工作方式：方式0为____，方式1为____，方式2为____。" }
-        ]
-      }
-    ]
-  },
-  choice: [
-    { id: "c1", question: "以下关于8088 CPU引脚的说法，正确的是（  ）", tag: "8088",
-      options: ["A. 8088有24根地址线，可寻址16MB空间", "B. 8088外部数据总线为16位", "C. INTR是可屏蔽中断请求输入引脚", "D. RD和WR均为输入信号"],
-      answer: 2, explanation: "8088有20根地址线（1MB），外部数据总线8位，RD/WR均为输出。选C。"},
-    { id: "c2", question: "8088 CPU中，信号NMI与INTR的区别是（  ）", tag: "8088",
-      options: ["A. NMI优先级更低", "B. NMI可以被软件屏蔽", "C. INTR可以被IF标志屏蔽，NMI不能", "D. 两者完全相同"],
-      answer: 2, explanation: "NMI是非屏蔽中断，不受IF影响；INTR可屏蔽，受IF控制。选C。"},
-    { id: "c3", question: "以下伪指令中，用于定义一个字（16位）数据的是（  ）", tag: "asm",
-      options: ["A. DB", "B. DW", "C. DD", "D. DQ"],
-      answer: 1, explanation: "DB=字节8位, DW=字16位, DD=双字32位, DQ=四字64位。选B。"},
-    { id: "c4", question: "执行语句 BUF DB 10H, 20H, 30H 后，BUF单元的内容是（  ）", tag: "asm",
-      options: ["A. 10H 20H 30H 各占一个字", "B. 10H 20H 30H 各占一个字节", "C. 只有10H被定义", "D. 三个字节合并为一个双字"],
-      answer: 1, explanation: "DB定义字节，BUF依次存放10H、20H、30H，各占1字节。选B。"},
-    { id: "c5", question: "执行 AND AX, BX 后，以下说法正确的是（  ）", tag: "asm",
-      options: ["A. CF和OF可能不为0", "B. CF=0，OF=0", "C. 不影响任何标志位", "D. 只影响CF"],
-      answer: 1, explanation: "逻辑运算AND/OR/NOT执行后CF=OF=0，影响ZF/SF/PF。选B。"},
-    { id: "c6", question: "执行TEST AL, 0FH后，若AL=0F0H，则ZF=（  ）", tag: "asm",
-      options: ["A. 0", "B. 1", "C. 不确定", "D. 与CF相同"],
-      answer: 1, explanation: "0F0H AND 0FH = 00H，结果为0，ZF=1。TEST不改变AL。选B。"},
-    { id: "c7", question: "关于CMP指令，以下说法正确的是（  ）", tag: "asm",
-      options: ["A. CMP会修改目的操作数", "B. CMP不影响标志位", "C. CMP执行减法但不修改操作数，只影响标志位", "D. CMP等同于SUB"],
-      answer: 2, explanation: "CMP执行目的-源，影响标志但不回写结果；SUB会修改目的操作数。选C。"},
-    { id: "c8", question: "若AX=8000H，BX=8000H，CF=1，执行ADC AX, BX后，AX=（  ）", tag: "asm",
-      options: ["A. 0000H，CF=1", "B. 0001H，CF=1", "C. 0001H，CF=0", "D. 8001H，CF=0"],
-      answer: 1, explanation: "8000H+8000H+1=10001H，16位保留0001H，产生进位CF=1。选B。"},
-    { id: "c9", question: "8088堆栈操作的规则是（  ）", tag: "8088",
-      options: ["A. 每次操作8位，SP不变", "B. 每次操作16位，后进先出，PUSH时SP+2", "C. 每次操作16位，先进后出，PUSH时SP-2", "D. 每次操作8位，先进后出"],
-      answer: 2, explanation: "堆栈每次操作16位，后进先出，PUSH时SP-2（向低地址增长）。选C。"},
-    { id: "c10", question: "3片8259A级联，可管理中断级数为（  ）", tag: "8259",
-      options: ["A. 24级", "B. 22级", "C. 21级", "D. 16级"],
-      answer: 1, explanation: "7N+1=7×3+1=22级。选B。"},
-    { id: "c11", question: "中断向量号n=20H的中断向量存放在中断向量表中偏移地址为（  ）", tag: "int",
-      options: ["A. 20H", "B. 40H", "C. 80H", "D. 100H"],
-      answer: 2, explanation: "偏移地址=n×4=20H×4=80H。选C。"},
-    { id: "c12", question: "中断向量表的存储范围是（  ）", tag: "int",
-      options: ["A. 00000H—0FFFFH（64KB）", "B. 00000H—003FFH（1KB）", "C. F0000H—FFFFFH", "D. 没有固定位置"],
-      answer: 1, explanation: "中断向量表固定在内存最低1KB，00000H~003FFH。选B。"},
-    { id: "c13", question: "在汇编语言中，用于定义一个段的正确格式是（  ）", tag: "asm",
-      options: ["A. SEG 段名 … END 段名", "B. 段名 SEGMENT … 段名 ENDS", "C. BEGIN 段名 … END 段名", "D. 段名 SECTION … 段名 ENDSEC"],
-      answer: 1, explanation: "标准格式：段名 SEGMENT ... 段名 ENDS。选B。"},
-    { id: "c14", question: "一个中断向量在中断向量表中占（  ）个内存单元", tag: "int",
-      options: ["A. 2个字节", "B. 4个字节", "C. 8个字节", "D. 1个字节"],
-      answer: 1, explanation: "每个向量存CS:IP共4字节：IP低→IP高→CS低→CS高。选B。"},
-    { id: "c15", question: "指令 MOV AX, [BP+4] 中，操作数默认使用的段寄存器是（  ）", tag: "8088",
-      options: ["A. DS", "B. ES", "C. SS", "D. CS"],
-      answer: 2, explanation: "含BP的地址默认SS（堆栈段）。BX/SI/DI默认DS。选C。"},
-    { id: "c16", question: "当I/O端口地址为300H时，正确的OUT指令格式是（  ）", tag: "8088",
-      options: ["A. OUT 300H, AL", "B. OUT AL, 300H", "C. MOV DX, 300H; OUT DX, AL", "D. OUT AX, DX"],
-      answer: 2, explanation: "端口超FFH必须用DX间接寻址。选C。"},
-    { id: "c17", question: "8253工作在方式3时，OUT引脚输出（  ）", tag: "8253",
-      options: ["A. 单次负脉冲", "B. 连续方波", "C. 计数结束高电平", "D. 无输出"],
-      answer: 1, explanation: "方式3是方波发生器，输出占空比50%连续方波。选B。"},
-    { id: "c18", question: "8255方式控制字中，D7位的作用是（  ）", tag: "8255",
-      options: ["A. 选择工作方式，D7=1时设置工作方式", "B. 选择工作方式，D7=0时设置工作方式", "C. 控制A口方向", "D. 控制C口某位"],
-      answer: 0, explanation: "D7=1：方式控制字；D7=0：C口位控制字。选A。"},
-    { id: "c19", question: "DS=2000H，SI=0100H，指令MOV AX, [SI]访问的物理地址是（  ）", tag: "8088",
-      options: ["A. 2100H", "B. 20100H", "C. 21000H", "D. 20001H"],
-      answer: 1, explanation: "物理地址=DS×16+SI=20000H+0100H=20100H。选B。"},
-    { id: "c20", question: "74LS138译码器，输入CBA=101时，有效输出为（  ）", tag: "mem",
-      options: ["A. Y1", "B. Y4", "C. Y5", "D. Y6"],
-      answer: 2, explanation: "CBA=101→二进制5→选中Y5（低电平有效）。选C。"}
-  ],
-  trueFalse: [
-    { id: "tf1", question: "8088 CPU的地址线为16根，可寻址64KB内存空间。", tag: "8088", answer: false, explanation: "8088地址线20根，寻址空间1MB（2²⁰B）。"},
-    { id: "tf2", question: "8253可编程定时/计数器内部有4个独立计数器。", tag: "8253", answer: false, explanation: "8253有3个独立16位计数器（Counter0/1/2）。"},
-    { id: "tf3", question: "8253每个计数器的OUT引脚是输出引脚，不是输入引脚。", tag: "8253", answer: true, explanation: "CLK和GATE是输入，OUT是输出。"},
-    { id: "tf4", question: "指令 MOV [BX], [SI] 是合法的8088指令。", tag: "asm", answer: false, explanation: "8088不允许两个操作数同时为内存，须经寄存器中转。"},
-    { id: "tf5", question: "指令 MOV DS, 1234H 可以直接将立即数送入段寄存器。", tag: "asm", answer: false, explanation: "段寄存器不能直接接收立即数，须经通用寄存器中转。"},
-    { id: "tf6", question: "CMP AX, BX 执行后，AX的内容会被减法结果修改。", tag: "asm", answer: false, explanation: "CMP只影响标志位，不修改操作数。"},
-    { id: "tf7", question: "串行异步通信中，发送方和接收方使用各自独立的时钟，每个字符前后加起止位。", tag: "8088", answer: true, explanation: "异步通信各自时钟，字符帧格式含起始位+数据位+停止位。"},
-    { id: "tf8", question: "串行同步通信效率比异步通信高。", tag: "8088", answer: true, explanation: "同步以数据块为单位，不需要每字符加起止位，效率更高。"},
-    { id: "tf9", question: "条件转移指令（如JZ、JC）可以实现段间远转移。", tag: "asm", answer: false, explanation: "条件转移只能段内短转移（-128~+127字节）。"},
-    { id: "tf10", question: "8088 CPU中，当端口地址超过FFH时，必须用DX寄存器进行I/O间接寻址。", tag: "8088", answer: true, explanation: "I/O直接寻址仅限≤FFH；超过FFH必须用DX。"},
-    { id: "tf11", question: "8255的C口不可以分成上下两组单独控制。", tag: "8255", answer: false, explanation: "C口可拆分PC7~PC4和PC3~PC0独立控制方向。"},
-    { id: "tf12", question: "4片8259A级联可以管理32级中断。", tag: "8259", answer: false, explanation: "4片=8+7+7+7=29级（7N+1=29）。"},
-    { id: "tf13", question: "PUSH AX 执行时，SP先减2，再将AX内容压入SS:SP所指内存。", tag: "8088", answer: true, explanation: "PUSH流程：SP=SP-2，然后写入新的SP地址。"},
-    { id: "tf14", question: "8253工作方式2是方波发生器，输出占空比50%的方波。", tag: "8253", answer: false, explanation: "方式2是频率发生器（负脉冲）；方式3才是方波发生器。"},
-    { id: "tf15", question: "8088的BP寄存器与BX一样，默认段寄存器都是DS。", tag: "8088", answer: false, explanation: "BX默认DS；BP默认SS（堆栈段）。"},
-    { id: "tf16", question: "8253初始化时，应先向计数器端口写入计数初值，再向控制字端口写入控制字。", tag: "8253", answer: false, explanation: "必须先写控制字，再写计数初值；顺序不能颠倒。"}
-  ],
-  shortAnswer: [
-    { id: "sa1", question: "列出8088 CPU的全部内部寄存器，按分组写出名称和主要用途。", tag: "8088",
-      answer: "通用：AX（累加）、BX（基址）、CX（计数）、DX（数据），各可拆H/L两8位。<br>指针/变址：SP（栈顶）、BP（基址SS）、SI（源变址DS）、DI（目的变址DS）。<br>段：CS（代码段）、DS（数据段）、SS（堆栈段）、ES（附加段）。<br>控制：IP（指令指针）、FLAGS（标志寄存器）。共14个16位寄存器。"},
-    { id: "sa2", question: "BP和BX寄存器作为基地址使用时，各自默认的段寄存器是什么？为何有此区别？", tag: "8088",
-      answer: "BP默认SS（堆栈段），BX默认DS（数据段）。BP专门访问堆栈帧参数/局部变量，故默认SS；BX一般数据访问，默认DS。"},
-    { id: "sa3", question: "什么是中断向量号？如何通过中断向量号找到中断服务程序的入口地址？", tag: "int",
-      answer: "中断向量号n（0~255）由INT n指令指定。① 向量表地址=n×4（段地址固定0000H）；② 该地址连续4字节：IP低→IP高→CS低→CS高；③ CPU取出CS:IP跳转到中断服务程序。向量表位于00000H~003FFH（1KB）。"},
-    { id: "sa4", question: "解释8259A可编程中断控制器的初始化过程。ICW1~ICW4各自设置什么内容？", tag: "8259",
-      answer: "ICW1：触发方式（边沿/电平）、单片/级联、是否需要ICW4。ICW2：中断类型号高5位。ICW3：主从级联关系。ICW4：8086/88模式、自动EOI、缓冲模式。顺序不能改变。"},
-    { id: "sa5", question: "8253定时/计数器初始化需要哪些步骤？写入顺序是什么？", tag: "8253",
-      answer: "① 计算初值N=f_CLK÷f_OUT；② 确定工作方式；③ 构造控制字（D7D6计数值、D5D4读写、D3D2D1方式、D0数制）；④ 先向控制字端口OUT控制字；⑤ 再向计数器端口OUT初值（先低后高）。"},
-    { id: "sa6", question: "8255并行接口的方式控制字和C口位控制字有何区别？如何在程序中区分两者？", tag: "8255",
-      answer: "方式控制字D7=1，设A/B/C口工作方式和方向。C口位控制字D7=0，对C口某一位置1/清0。都写入控制字端口，CPU根据D7自动识别。"},
-    { id: "sa7", question: "串行同步通信和串行异步通信有何区别？（时钟、数据组织、效率）", tag: "8088",
-      answer: "时钟：同步统一时钟源，异步各自独立。数据：同步以数据块连续传输+同步字符，异步以字符为单位+起始/停止位。效率：同步更高（无需每字符起止位）。"},
-    { id: "sa8", question: "执行以下程序后，AX、BX、CX、DX各寄存器的值是多少？<br>MOV AX, 1234H<br>MOV BX, 5678H<br>XCHG AX, BX<br>MOV CX, AX<br>ADD DX, 0<br>HLT", tag: "asm",
-      answer: "AX=5678H（XCHG后得原BX），BX=1234H（XCHG后得原AX），CX=5678H（MOV CX,AX），DX=初始值（ADD DX,0不改变DX）。"}
-  ],
-  programming: [
-    { id: "p1", question: "将AX和BX的内容互换，要求不使用XCHG指令，用4条指令完成，最后HLT。", tag: "asm", answer: "MOV CX, AX<br>MOV AX, BX<br>MOV BX, CX<br>HLT"},
-    { id: "p2", question: "将AL的高4位清零，低4位保持不变，用3条指令完成，最后HLT。", tag: "asm", answer: "AND AL, 0FH<br>HLT<br>（或：MOV BL, AL / AND AL, 0FH / HLT）"},
-    { id: "p3", question: "将内存DS:2000H处的一个字读入AX，与BX相加，结果存回DS:2000H，最后HLT。", tag: "asm", answer: "MOV AX, [2000H]<br>ADD AX, BX<br>MOV [2000H], AX<br>HLT"},
-    { id: "p4", question: "从端口310H读入一个字节到AL，将AL最高位置1，其余位不变，再将结果送回310H端口，最后HLT。", tag: "asm", answer: "MOV DX, 310H<br>IN AL, DX<br>OR AL, 80H<br>OUT DX, AL<br>HLT"},
-    { id: "p5", question: "8253基地址310H，计数器1，方式3（方波），CLK=1MHz，输出1kHz，二进制计数，先低后高。写出完整初始化程序。", tag: "8253", answer: "; N=1MHz÷1kHz=1000=03E8H<br>; 控制字=01 11 011 0=76H<br>MOV DX, 313H<br>MOV AL, 76H<br>OUT DX, AL<br>MOV DX, 311H<br>MOV AX, 1000<br>OUT DX, AL<br>MOV AL, AH<br>OUT DX, AL<br>HLT"},
-    { id: "p6", question: "分析程序执行后各寄存器的值：<br>MOV AX, 0FF00H<br>MOV BX, 00FFH<br>ADD AX, BX<br>NOT BX<br>AND AX, BX<br>HLT", tag: "asm", answer: "AX=FF00H, BX=00FFH → ADD后AX=FFFFH → NOT BX=FF00H → AND后AX=FF00H<br>结果：AX=FF00H, BX=FF00H, CF=0, ZF=0, OF=0"}
-  ],
-  comprehensive: [
-    { id: "comp1", question: "系统用74LS138译码器和3片8K×8位SRAM扩展存储器。A19~A13接74LS138，A12~A0接片内地址，G1=1,G2A=G2B=0，Y0/Y1/Y2接片选。A19~A17=000，A16=C，A15=B，A14=A。<br><br>(1) 每片容量？3片共多少？<br>(2) Y0(CBA=000)地址范围？<br>(3) Y1(CBA=001)地址范围？<br>(4) Y2(CBA=010)地址范围？<br>(5) 选中Y2时A16A15A14=？", tag: "mem",
-      answer: "(1) 8KB/片，共24KB。<br>(2) Y0: 00000H~01FFFH<br>(3) Y1: 02000H~03FFFH<br>(4) Y2: 04000H~05FFFH<br>(5) 010"},
-    { id: "comp2", question: "4片16K×8位ROM扩展8088内存，地址连续，首地址C0000H。<br><br>(1) 每片需多少根片内地址线？<br>(2) 4片总容量？<br>(3) 第1片地址范围？<br>(4) 第2片地址范围？<br>(5) 第3、4片合计占多少KB？末地址？", tag: "mem",
-      answer: "(1) 14根（A13~A0）<br>(2) 64KB<br>(3) C0000H~C3FFFH<br>(4) C4000H~C7FFFH<br>(5) 32KB, CFFFFH"},
-    { id: "comp3", question: "8253端口基地址40H（控制字端口43H）。计数器0初始化：方式2（频率发生器），CLK=2MHz，输出500Hz，二进制计数，先低后高。<br><br>(1) 计数初值N=？<br>(2) 控制字=？<br>(3) 写出完整初始化程序。", tag: "8253",
-      answer: "(1) N=2MHz÷500Hz=4000=0FA0H<br>(2) 控制字=00110100B=34H<br>(3) MOV AL, 34H → OUT 43H, AL → MOV AX, 4000 → OUT 40H, AL → MOV AL, AH → OUT 40H, AL → HLT"},
-    { id: "comp4", question: "8253端口地址310H~313H。用计数器2，方式0（计数结束中断），二进制，只写低8位。CLK=1MHz，计数1000个脉冲后中断。<br><br>(1) 计数初值N=？（注意只写低8位）<br>(2) 控制字=？<br>(3) 写出初始化程序。", tag: "8253",
-      answer: "(1) N=1000=03E8H，只写低8位则实际=E8H=232<br>(2) 控制字=10 01 000 0=90H<br>(3) MOV DX, 313H → MOV AL, 90H → OUT DX, AL → MOV DX, 312H → MOV AL, 0E8H → OUT DX, AL → HLT"},
-  ],
-  memoryExpansion: [
-    { question: "系统用3片4K×8位SRAM芯片组成存储器。CPU地址线A19~A0共20根，数据线D7~D0。74LS138译码器连接：G1接A15，G2A=G2B=0，C接A14，B接A13，A接A12。Y0、Y1、Y2分别接3片SRAM的片选端CS。各芯片地址线A11~A0接CPU地址线A11~A0，数据线D7~D0接CPU数据总线。A19~A16接地。", tag: "mem",
-      subs: [
-        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:0, explanation:"3片4K×8芯片，数据位均为8位，只扩展字数。" },
-        { type:"fill", text:"Q2. 该系统总存储器容量为____KB。", blanks:["12"], explanation:"3片×4KB=12KB。" },
-        { type:"fill", text:"Q3. 每片SRAM的片内地址线由A11~A0共____根，片选相关的地址线为A____~A12共4根。", blanks:["12","15"], explanation:"每片4KB需12根地址线A11~A0。" },
-        { type:"fill", text:"Q4. 写出各芯片地址范围（十六进制）：\n第1片(Y0)：____H ~ ____H\n第2片(Y1)：____H ~ ____H\n第3片(Y2)：____H ~ ____H", blanks:["08000","08FFF","09000","09FFF","0A000","0AFFF"], explanation:"A15=1使G1有效，74LS138译码Y0~Y2。Y0(000):08000H~08FFFH, Y1(001):09000H~09FFFH, Y2(010):0A000H~0AFFFH。" },
-        { type:"choice", text:"Q5. 该电路是否存在地址重叠？", options:["存在重叠","不存在重叠"], answer:1, explanation:"各片选输出唯一，A19~A16固定为0，无地址重叠。" }
-      ]
-    },
-    { question: "系统用2片16K×4位SRAM芯片组成16K×8位存储器。CPU地址线A19~A0，数据线D7~D0。第1片数据线接D7~D4（高4位），第2片接D3~D0（低4位）。两片CS端相连后接74LS138的Y0输出。74LS138连接：G1接A15，G2A=G2B=0，C接A14，B接A13，A接A12。各芯片地址线A13~A0接CPU A13~A0。A19~A16接地。", tag: "mem",
-      subs: [
-        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:1, explanation:"2片16K×4扩展为16K×8，只扩展数据位宽度。" },
-        { type:"fill", text:"Q2. 该存储器系统总容量为____KB，数据总线宽度为____位。", blanks:["16","8"], explanation:"16K×8=128Kb=16KB，数据宽度8位。" },
-        { type:"fill", text:"Q3. 每片SRAM片内地址线由A____~A0共____根。", blanks:["13","14"], explanation:"16K=2^14，需14根地址线A13~A0。" },
-        { type:"fill", text:"Q4. 写出该存储器系统的地址范围：____H ~ ____H。", blanks:["08000","0BFFF"], explanation:"Y0(CBA=000)且A15=1, A19~A16=0。共16KB连续空间，地址范围08000H~0BFFFH。" },
-        { type:"choice", text:"Q5. 若将G1改为接A16（其他不变），该存储器地址范围变为？", options:["10000H~13FFFH","08000H~0BFFFH","00000H~03FFFH","18000H~1BFFFH"], answer:0, explanation:"G1改接A16后需A16=1才使能，A15不再参与译码，地址范围10000H~13FFFH。" }
-      ]
-    },
-    { question: "系统用4K×8位SRAM芯片组成20K×8位存储器。CPU地址线A19~A0，数据线D7~D0。74LS138译码器：G1接A19，G2A=G2B=0，C接A18，B接A17，A接A16。Y0~Y4分别接5片SRAM的CS端。各芯片A11~A0接A11~A0。A15~A12接地。", tag: "mem",
-      subs: [
-        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:0, explanation:"5片4K×8，扩展字数到20K×8，字扩展。" },
-        { type:"fill", text:"Q2. 系统总存储器容量为____KB。", blanks:["20"], explanation:"5×4KB=20KB。" },
-        { type:"fill", text:"Q3. 写出各芯片地址范围（每片4KB=1000H）：\nY0：____H~____H  Y1：____H~____H\nY2：____H~____H  Y3：____H~____H\nY4：____H~____H", blanks:["80000","80FFF","81000","81FFF","82000","82FFF","83000","83FFF","84000","84FFF"], explanation:"G1接A19，需A19=1。74LS138输入C=A18,B=A17,A=A16。Y0(000):80000H~80FFFH。" },
-        { type:"fill", text:"Q4. A15~A12接地后，片内实际有效地址线是A____~A0共____根。有无地址重叠？____（填有/无）", blanks:["11","12","无"], explanation:"A15~A12固定0，实际用A11~A0共12根片内地址。A15~A12虽未参与译码但固定0，无重叠。" }
-      ]
-    }
-  ],
-};
-
-// ============================================================
-// DATA: Generated Questions (parameter-varied copies)
-// ============================================================
-const GENERATED_POOL = {
-  choice: [
-    { question: "8088 CPU的地址线数量为（  ）", tag: "8088",
-      options: ["A. 16根，寻址64KB", "B. 20根，寻址1MB", "C. 24根，寻址16MB", "D. 32根，寻址4GB"],
-      answer: 1, explanation: "8088有20根地址线，寻址空间1MB。"},
-    { question: "8253方式控制字中，D5D4=11表示（  ）", tag: "8253",
-      options: ["A. 只读低8位", "B. 只读高8位", "C. 先读低8位后读高8位", "D. 锁存当前计数值"],
-      answer: 2, explanation: "D5D4=11表示先低后高16位读写。"},
-    { question: "某8253计数器CLK=2MHz，要求OUT=2kHz方波，初值N为（  ）", tag: "8253",
-      options: ["A. 100", "B. 1000", "C. 2000", "D. 4000"],
-      answer: 1, explanation: "N=2MHz÷2kHz=1000。"},
-    { question: "8088 CPU中，下列哪个寄存器默认使用SS段？（  ）", tag: "8088",
-      options: ["A. BX", "B. SI", "C. DI", "D. BP"],
-      answer: 3, explanation: "BP默认SS段。"},
-    { question: "8255的A口工作在方式2时，该方式为（  ）", tag: "8255",
-      options: ["A. 基本I/O", "B. 选通I/O", "C. 双向I/O", "D. 位控模式"],
-      answer: 2, explanation: "方式2为双向I/O，仅A口支持。"},
-    { question: "中断向量号n的存储地址计算公式为（  ）", tag: "int",
-      options: ["A. n×2", "B. n×4", "C. n×8", "D. n×16"],
-      answer: 1, explanation: "每个中断向量4字节，地址=n×4。"},
-    { question: "以下哪个是8088的非屏蔽中断引脚？（  ）", tag: "8088",
-      options: ["A. INTR", "B. NMI", "C. HOLD", "D. RESET"],
-      answer: 1, explanation: "NMI是非屏蔽中断引脚。"},
-    { question: "8255基本地址300H时，B口地址为（  ）", tag: "8255",
-      options: ["A. 300H", "B. 301H", "C. 302H", "D. 303H"],
-      answer: 1, explanation: "A=300H, B=301H, C=302H, 控制字=303H。"},
-    { question: "4片8259A级联可管理的中断级数为（  ）", tag: "8259",
-      options: ["A. 32级", "B. 29级", "C. 28级", "D. 24级"],
-      answer: 1, explanation: "7N+1=7×4+1=29级。"},
-    { question: "执行NOT指令后，对标志位的影响是（  ）", tag: "asm",
-      options: ["A. 影响ZF", "B. 影响CF", "C. 影响OF", "D. 不影响任何标志位"],
-      answer: 3, explanation: "NOT指令不影响任何标志位。"}
-  ],
-  fill: [
-    { text: "8088外部数据总线为____位，内部为____位。", blanks: ["8", "16"], tag: "8088" },
-    { text: "8253工作方式____产生连续方波，方式____产生连续负脉冲。", blanks: ["3", "2"], tag: "8253" },
-    { text: "74LS138是____线-____线译码器。", blanks: ["3", "8"], tag: "mem" },
-    { text: "8255C口位控制字的D7=____，方式控制字的D7=____。", blanks: ["0", "1"], tag: "8255" },
-    { text: "中断向量表共____个中断向量，每个占____字节。", blanks: ["256", "4"], tag: "int" },
-    { text: "8259A单片可管理____级中断，级联时公式为____。", blanks: ["8", "7N+1"], tag: "8259" },
-    { text: "汇编中定义字节用____，定义字用____。", blanks: ["DB", "DW"], tag: "asm" },
-    { text: "PUSH操作时SP先____，POP操作时SP先____。", blanks: ["减2", "加2"], tag: "8088" }
-  ],
-  tf: [
-    { question: "8088的INTR引脚输入的中断可以被软件屏蔽。", tag: "8088", answer: true, explanation: "INTR受IF标志控制，可屏蔽。" },
-    { question: "8253每个计数器都是16位的加法计数器。", tag: "8253", answer: false, explanation: "是16位减法计数器。" },
-    { question: "8255的A口、B口、C口都可以工作在方式2。", tag: "8255", answer: false, explanation: "方式2仅A口支持。" },
-    { question: "串行同步通信效率比异步通信高。", tag: "8088", answer: true, explanation: "同步无需每字符起止位。" },
-    { question: "8259A的ICW1用于设置中断类型号。", tag: "8259", answer: false, explanation: "ICW2用于设置中断类型号高5位。" },
-    { question: "指令XCHG会影响标志位。", tag: "asm", answer: false, explanation: "XCHG不影响任何标志位。" },
-    { question: "8253初始化时必须先写控制字再写计数初值。", tag: "8253", answer: true, explanation: "顺序不能颠倒。" },
-    { question: "MOV AX, [BP]默认使用DS段寄存器。", tag: "8088", answer: false, explanation: "BP默认SS段。" }
-  ],
-  mem: [
-    {
-      question: "系统用3片4K×8位SRAM芯片组成存储器。CPU地址线A19~A0共20根，数据线D7~D0。74LS138译码器连接：G1接A15，G2A=G2B=0，C接A14，B接A13，A接A12。Y0、Y1、Y2分别接3片SRAM的片选端CS。各芯片地址线A11~A0接CPU地址线A11~A0，数据线D7~D0接CPU数据总线。A19~A16接地。",
-      tag: "mem",
-      subs: [
-        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:0, explanation:"3片4K×8芯片，数据位均为8位，只扩展字数。" },
-        { type:"fill", text:"Q2. 该系统总存储器容量为____KB。", blanks:["12"], explanation:"3片×4KB=12KB。" },
-        { type:"fill", text:"Q3. 每片SRAM的片内地址线由A11~A0共____根，片选相关的地址线为A____~A12共4根。", blanks:["12","15"], explanation:"每片4KB需12根地址线A11~A0。" },
-        { type:"fill", text:`Q4. 写出各芯片地址范围（十六进制）：
-第1片(Y0)：____H ~ ____H
-第2片(Y1)：____H ~ ____H
-第3片(Y2)：____H ~ ____H`, blanks:["08000","08FFF","09000","09FFF","0A000","0AFFF"], explanation:"A15=1使G1有效，74LS138译码Y0~Y2。Y0(000):08000H~08FFFH, Y1(001):09000H~09FFFH, Y2(010):0A000H~0AFFFH。" },
-        { type:"choice", text:"Q5. 该电路是否存在地址重叠？", options:["存在重叠","不存在重叠"], answer:1, explanation:"各片选输出唯一，A19~A16固定为0，无地址重叠。" }
-      ]
-    },
-    {
-      question: "系统用2片16K×4位SRAM芯片组成16K×8位存储器。CPU地址线A19~A0，数据线D7~D0。第1片数据线接D7~D4（高4位），第2片接D3~D0（低4位）。两片CS端相连后接74LS138的Y0输出。74LS138连接：G1接A15，G2A=G2B=0，C接A14，B接A13，A接A12。各芯片地址线A13~A0接CPU A13~A0。A19~A16接地。",
-      tag: "mem",
-      subs: [
-        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:1, explanation:"2片16K×4扩展为16K×8，只扩展数据位宽度。" },
-        { type:"fill", text:"Q2. 该存储器系统总容量为____KB，数据总线宽度为____位。", blanks:["16","8"], explanation:"16K×8=128Kb=16KB，数据宽度8位。" },
-        { type:"fill", text:"Q3. 每片SRAM片内地址线由A____~A0共____根。", blanks:["13","14"], explanation:"16K=2^14，需14根地址线A13~A0。" },
-        { type:"fill", text:"Q4. 写出该存储器系统的地址范围：____H ~ ____H。", blanks:["08000","0BFFF"], explanation:"Y0(CBA=000)且A15=1, A19~A16=0。共16KB连续空间，地址范围08000H~0BFFFH。" },
-        { type:"choice", text:"Q5. 若将G1改为接A16（其他不变），该存储器地址范围变为？", options:["10000H~13FFFH","08000H~0BFFFH","00000H~03FFFH","18000H~1BFFFH"], answer:0, explanation:"G1改接A16后需A16=1才使能，A15不再参与译码，地址范围10000H~13FFFH。" }
-      ]
-    },
-    {
-      question: "系统用4K×8位SRAM芯片组成20K×8位存储器。CPU地址线A19~A0，数据线D7~D0。74LS138译码器：G1接A19，G2A=G2B=0，C接A18，B接A17，A接A16。Y0~Y4分别接5片SRAM的CS端。各芯片A11~A0接A11~A0。A15~A12接地。",
-      tag: "mem",
-      subs: [
-        { type:"choice", text:"Q1. 该电路属于哪种存储器扩展类型？", options:["字扩展","位扩展","字位同时扩展"], answer:0, explanation:"5片4K×8，扩展字数到20K×8，字扩展。" },
-        { type:"fill", text:"Q2. 系统总存储器容量为____KB。", blanks:["20"], explanation:"5×4KB=20KB。" },
-        { type:"fill", text:`Q3. 写出各芯片地址范围（每片4KB=1000H）：
-Y0：____H~____H  Y1：____H~____H
-Y2：____H~____H  Y3：____H~____H
-Y4：____H~____H`, blanks:["80000","80FFF","81000","81FFF","82000","82FFF","83000","83FFF","84000","84FFF"], explanation:"G1接A19，需A19=1。74LS138输入C=A18,B=A17,A=A16。Y0(000):80000H~80FFFH。" },
-        { type:"fill", text:"Q4. A15~A12接地后，片内实际有效地址线是A____~A0共____根。有无地址重叠？____（填有/无）", blanks:["11","12","无"], explanation:"A15~A12固定0，实际用A11~A0共12根片内地址。A15~A12虽未参与译码但固定0，无重叠。" }
-      ]
-    }
-  ],
-  prog: [
-    { question: "将AL的低4位清零，高4位保持不变，用3条指令完成。", tag: "asm", answer: "AND AL, 0F0H<br>HLT" },
-    { question: "将AX和CX的内容互换，用3条指令完成（可用XCHG）。", tag: "asm", answer: "XCHG AX, CX<br>HLT" },
-    { question: "从端口80H读入字节，加1后写回，最后HLT。", tag: "asm", answer: "IN AL, 80H<br>INC AL<br>OUT 80H, AL<br>HLT" },
-    { question: "8253基址40H，计数器2，方式3，CLK=1MHz，输出500Hz，二进制，先低后高。写出初始化程序。", tag: "8253", answer: "; N=1MHz÷500Hz=2000=07D0H<br>; 控制字=10 11 011 0=B6H<br>MOV AL, 0B6H<br>OUT 43H, AL<br>MOV AX, 2000<br>OUT 42H, AL<br>MOV AL, AH<br>OUT 42H, AL<br>HLT" },
-    { question: "8253基址40H，计数器0，方式2，CLK=1MHz，输出1KHz，二进制，只写低8位。写出初始化程序。", tag: "8253", answer: "; N=1MHz÷1KHz=1000=03E8H，只写低8位→E8H=232<br>; 控制字=00 01 010 0=14H<br>MOV AL, 14H<br>OUT 43H, AL<br>MOV AL, 0E8H<br>OUT 40H, AL<br>HLT" },
-    { question: "8253基址40H，计数器1，方式0，CLK=1MHz，计数2000个脉冲后中断，BCD计数，只写高8位。写出初始化程序。", tag: "8253", answer: "; N=2000，只写高8位→20H<br>; BCD计数→D0=1，控制字=01 10 000 1=61H<br>MOV AL, 61H<br>OUT 43H, AL<br>MOV AL, 20H<br>OUT 41H, AL<br>HLT" },
-    { question: "8253基址40H，计数器0，方式3，CLK=2MHz，输出4KHz方波，BCD计数，先低后高。写出初始化程序。", tag: "8253", answer: "; N=2MHz÷4KHz=500<br>; BCD计数，控制字=00 11 011 1=37H<br>MOV AL, 37H<br>OUT 43H, AL<br>MOV AX, 500<br>OUT 40H, AL<br>MOV AL, AH<br>OUT 40H, AL<br>HLT" },
-    { question: "系统用2片8K×8位SRAM扩展存储器，74LS138译码，G1=1,G2A=G2B=0。第1片Y0，第2片Y1。(1)每片容量？(2)第1片地址范围？(3)第2片地址范围？", tag: "mem", answer: "(1) 每片8KB<br>(2) Y0→00000H~01FFFH<br>(3) Y1→02000H~03FFFH" },
-    { question: "系统用4片16K×8位ROM，首地址E0000H，地址连续。(1)每片需多少根片内地址线？(2)4片总容量？(3)第1片地址范围？(4)最后一片末地址？", tag: "mem", answer: "(1) 14根(A13~A0)<br>(2) 64KB<br>(3) E0000H~E3FFFH<br>(4) EFFFFH" },
-    { question: "8255基址60H，A口方式0输出，B口方式0输入，C口上半部输出下半部输入。写出方式控制字。", tag: "8255", answer: "; 控制字D7=1, A组方式0=00, A口输出=0, C上输出=0, B组方式0=0, B口输入=1, C下输入=1<br>; 1000 0011=83H<br>MOV AL, 83H<br>OUT 63H, AL<br>HLT" },
-    { question: "8255基址300H，PC5置1。写出控制字和程序。", tag: "8255", answer: "; C口位控制字D7=0, 位选=101(PC5), 置1=1<br>; 0000 1011=0BH<br>MOV AL, 0BH<br>MOV DX, 303H<br>OUT DX, AL<br>HLT" }
-  ]
-};
 
 // ============================================================
 // APP STATE
@@ -1016,8 +576,7 @@ let quizTime = 0;
 let wrongQuestions = [];
 let wrongFilter = 'all'; // 'all', 'new', 'old'
 
-// Notes self-test state
-let notesSelfTestOn = false;
+// Notes display mode declared in NOTES section below
 
 // Answer statistics (per question: total attempts, correct, wrong)
 let answerStats = {};
@@ -1760,102 +1319,69 @@ document.querySelectorAll('nav button').forEach(btn => {
 });
 
 // ============================================================
-// NOTES
+// NOTES (driven by data/notes.json via Bridge)
 // ============================================================
-function renderNotes() {
-  const container = document.getElementById('notesContainer');
-  container.innerHTML = NOTES.map(n => `
-    <div class="card">
-      <button class="topic-btn" onclick="toggleTopic('${n.id}')">
-        <span class="icon" style="background:${n.color}">${n.icon}</span>
-        <span>${n.title}</span>
-        <span class="arrow">▶</span>
-      </button>
-      <div class="topic-content" id="topic_${n.id}">
-        <div class="topic-inner" id="inner_${n.id}">${n.content}</div>
-      </div>
-    </div>
-  `).join('');
-}
-renderNotes();
+let currentNotesMode = 'view';
 
-function toggleTopic(id) {
-  const content = document.getElementById('topic_' + id);
-  const btn = content.previousElementSibling;
+function rerenderNotes() {
+  const container = document.getElementById('notesContainer');
+  if (!container || !window.__NOTES_TREE) return;
+  const preYellowFn = (bid) => ClozeState.isYellow(bid);
+  container.innerHTML = NotesRenderer.renderTree(window.__NOTES_TREE, currentNotesMode, preYellowFn);
+  if (currentNotesMode !== 'view') {
+    ClozeTimer.attach(container, {
+      onGrade(blankId, isCorrect, actual, expected) {
+        ClozeState.recordResult(blankId, isCorrect, expected, actual);
+        DailyReview.markBlankDone(blankId);
+        updateClozeProgress();
+      }
+    });
+  }
+  updateClozeProgress();
+}
+
+function setNotesMode(mode) {
+  currentNotesMode = mode;
+  document.querySelectorAll('.cloze-toolbar button').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById({ view: 'clozeViewBtn', 'cloze-key': 'clozeKeyBtn', cloze: 'clozeDenseBtn' }[mode]);
+  if (btn) btn.classList.add('active');
+  rerenderNotes();
+}
+
+function updateClozeProgress() {
+  const el = document.getElementById('clozeProgress');
+  if (!el) return;
+  if (currentNotesMode === 'view') { el.textContent = ''; return; }
+  const all = document.querySelectorAll('#notesContainer input.cloze-input');
+  const correct = document.querySelectorAll('#notesContainer input.cloze-input.cloze-correct');
+  const wrong = document.querySelectorAll('#notesContainer input.cloze-input.cloze-wrong');
+  el.textContent = `挖空 ${all.length} / 已掌握 ${correct.length} / 标黄 ${wrong.length}`;
+}
+
+function toggleNotesSection(btn) {
+  const card = btn.closest('.card');
+  if (!card) return;
+  const content = card.querySelector('.topic-content');
   content.classList.toggle('open');
   btn.classList.toggle('open');
-  if (notesSelfTestOn) updateSelfTestProgress();
 }
+// 兼容旧调用名
+function toggleTopic() { /* no-op: section folding handled by toggleNotesSection */ }
 
 function filterNotes() {
   const q = document.getElementById('notesSearch').value.toLowerCase();
-  document.querySelectorAll('.topic-btn').forEach(btn => {
-    const card = btn.closest('.card');
-    if (!q) { card.style.display = ''; return; }
-    const text = btn.textContent.toLowerCase() + card.querySelector('.topic-inner').textContent.toLowerCase();
-    card.style.display = text.includes(q) ? '' : 'none';
+  document.querySelectorAll('#notesContainer .card').forEach(card => {
+    const text = card.textContent.toLowerCase();
+    card.style.display = (!q || text.includes(q)) ? '' : 'none';
   });
 }
 
-// ============================================================
-// NOTES SELF-TEST
-// ============================================================
-function toggleNotesSelfTest() {
-  notesSelfTestOn = !notesSelfTestOn;
-  const btn = document.getElementById('notesSelfTestBtn');
-  const progress = document.getElementById('selfTestProgress');
-
-  if (notesSelfTestOn) {
-    btn.textContent = '📖 退出自测';
-    btn.style.background = 'var(--primary)';
-    btn.style.color = 'white';
-    progress.style.display = 'inline-block';
-    // Add self-test class to all note containers
-    document.querySelectorAll('.topic-inner').forEach(el => el.classList.add('self-test-mode'));
-    // Make .key elements clickable to reveal
-    document.querySelectorAll('.topic-inner .key').forEach(el => {
-      el.style.cursor = 'pointer';
-      el.onclick = function() { this.classList.toggle('revealed'); updateSelfTestProgress(); };
-    });
-    // Expand all topics in self-test mode
-    document.querySelectorAll('.topic-content').forEach(el => {
-      if (!el.classList.contains('open')) {
-        el.classList.add('open');
-        el.previousElementSibling.classList.add('open');
-      }
-    });
-    updateSelfTestProgress();
-  } else {
-    btn.textContent = '🔍 挂空自测';
-    btn.style.background = '';
-    btn.style.color = '';
-    progress.style.display = 'none';
-    document.querySelectorAll('.topic-inner').forEach(el => el.classList.remove('self-test-mode'));
-    document.querySelectorAll('.topic-inner .key').forEach(el => {
-      el.classList.remove('revealed');
-      el.style.cursor = '';
-      el.onclick = null;
-    });
-  }
-}
-
-function updateSelfTestProgress() {
-  const allKeys = document.querySelectorAll('.topic-inner.open .key, .topic-content.open .key');
-  // Fallback: if no .open context, count all visible keys
-  let visibleKeys = [];
-  if (notesSelfTestOn) {
-    visibleKeys = document.querySelectorAll('.self-test-mode .key');
-  } else {
-    visibleKeys = allKeys;
-  }
-  const revealed = document.querySelectorAll('.self-test-mode .key.revealed');
-  const total = visibleKeys.length;
-  const done = revealed.length;
-  const progress = document.getElementById('selfTestProgress');
-  if (progress) {
-    progress.textContent = total > 0 ? `✅ ${done}/${total} 已掌握` : '加载中...';
-  }
-}
+document.addEventListener('notes-ready', () => {
+  rerenderNotes();
+  renderPracticeNav();
+  switchSection(currentSection);
+  if (window.Bridge && typeof window.Bridge.refreshDailyReview === 'function') window.Bridge.refreshDailyReview();
+});
 
 // ============================================================
 // PRACTICE - Fill Blank
@@ -2120,17 +1646,19 @@ function renderPracticeNav() {
     `<button class="${s.key === currentSection ? 'active' : ''}" onclick="switchSection('${s.key}')">${s.label}</button>`
   ).join('');
 }
-renderPracticeNav();
+// renderPracticeNav() 由 notes-ready 事件触发
 
 function switchSection(key) {
   currentSection = key;
   document.querySelectorAll('#practiceNav button').forEach(b => b.classList.remove('active'));
-  document.querySelector(`#practiceNav button[onclick*="${key}"]`).classList.add('active');
-  document.getElementById('practiceContainer').innerHTML = renderChoices(key);
+  const btn = document.querySelector(`#practiceNav button[onclick*="${key}"]`);
+  if (btn) btn.classList.add('active');
+  const host = document.getElementById('practiceContainer');
+  if (host) host.innerHTML = renderChoices(key);
   selectedChoice = {};
   selectedTF = {};
 }
-switchSection('choice');
+// 初次 switchSection('choice') 由 notes-ready 事件触发
 
 // ============================================================
 // QUIZ MODE
@@ -3277,5 +2805,12 @@ if (!curKey && document.getElementById('aiKeyStatus')) {
   document.getElementById('aiKeyStatus').style.color = 'var(--warning)';
 }
 </script>
+
+<script src="js/cloze-state.js"></script>
+<script src="js/cloze-timer.js"></script>
+<script src="js/notes-renderer.js"></script>
+<script src="js/question-generator.js"></script>
+<script src="js/daily-review.js"></script>
+<script src="js/bridge.js"></script>
 </body>
 </html>
