@@ -14,13 +14,29 @@
 (function (global) {
   'use strict';
 
-  // 高密度模式额外挖空的正则：阿拉伯数字+可选单位、十六进制 H 结尾、汉语数字
-  const CLOZE_EXTRA = [
-    { re: /\b\d+H\b/g, weight: 3 },                       // 03E8H
-    { re: /\b\d+(?:KB|MB|B|位|根|片|级|个)\b/gi, weight: 3 },
-    { re: /\b[0-9A-F]{2,5}H\b/g, weight: 3 },
-    { re: /\b\d+(?:\.\d+)?\b/g, weight: 1 }
+  // 两组挖空候选：
+  //   KEY  - 关键挖空模式（cloze-key）也启用：含单位的数字、十六进制
+  //   EXTRA - 仅高密度模式（cloze）启用：孤立纯数字
+  const CLOZE_KEY_RE = [
+    /\b[0-9A-F]{1,5}H\b/g,                                       // 03E8H, FFH
+    /\b\d+(?:\.\d+)?\s*(?:KB|MB|GB|kHz|MHz|Hz|位|根|片|级|个|字节|分|题)\b/gi,
+    /\b7N\s*\+\s*1\b/g,                                          // 7N+1
+    /A\d{1,2}\s*[~～-]\s*A\d{1,2}\b/g                            // A19~A0
   ];
+  const CLOZE_EXTRA_RE = [
+    /\b\d+(?:\.\d+)?\b/g                                         // 任意纯数字
+  ];
+
+  // 引导词识别 —— 与 question-generator 的 isLabelKey 保持一致
+  function isLabelKey(text) {
+    const t = String(text || '').trim();
+    if (!t) return true;
+    if (/[：:]\s*$/.test(t)) return true;
+    if (/^[⚠🔥★☆▶◆●○✦✧❗❓]/.test(t)) return true;
+    if (/提醒|警示|警告|注意|公式$|模板$|步骤$|说明$|总结$|核心做题/.test(t)) return true;
+    if (t.length <= 4 && /^(分组|寄存器|默认段|记忆点|方式|名称|特点|分值|说明|大题|题型|端口|地址|功能|备注)$/.test(t)) return true;
+    return false;
+  }
 
   function escapeHtml(s) {
     return String(s == null ? '' : s)
@@ -37,17 +53,17 @@
       + ` size="${size}" placeholder=""${preYellow ? ' data-pre-yellow="1"' : ''}>`;
   }
 
-  // 把单段 plain 文本按 CLOZE_EXTRA 切成 [{text},{blank}] 序列
-  function tokenizeForExtras(text, baseBlankId, preYellowFn) {
+  // 把单段 plain 文本按 regex 列表挖成 [{text},{blank}]
+  function tokenizeForExtras(text, baseBlankId, preYellowFn, regexList) {
     const hits = [];
-    for (const { re } of CLOZE_EXTRA) {
+    for (const re of regexList) {
       re.lastIndex = 0;
       let m;
       while ((m = re.exec(text)) !== null) {
         hits.push({ start: m.index, end: m.index + m[0].length, ans: m[0] });
       }
     }
-    // 去重叠：保留较长 / 较早的
+    // 去重叠：较长 / 较早优先
     hits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
     const merged = [];
     let lastEnd = -1;
@@ -77,18 +93,21 @@
   function renderSpans(spans, baseBlankId, mode, preYellowFn) {
     if (!spans || !spans.length) return '';
     const html = [];
+    // 关键挖空：粗体非标签 + 含单位数字。高密度：加上所有数字。
+    const extraRegex = mode === 'cloze' ? [...CLOZE_KEY_RE, ...CLOZE_EXTRA_RE]
+                     : mode === 'cloze-key' ? CLOZE_KEY_RE
+                     : null;
     spans.forEach((sp, idx) => {
       if (sp.kind === 'key') {
-        if (mode === 'view') {
+        if (mode === 'view' || isLabelKey(sp.text)) {
           html.push(`<span class="key">${escapeHtml(sp.text)}</span>`);
         } else {
           const blankId = `${baseBlankId}_s${idx}`;
           html.push(inputHtml(blankId, sp.text, preYellowFn(blankId)));
         }
       } else {
-        // text span
-        if (mode === 'cloze') {
-          const parts = tokenizeForExtras(sp.text, `${baseBlankId}_s${idx}`, preYellowFn);
+        if (extraRegex) {
+          const parts = tokenizeForExtras(sp.text, `${baseBlankId}_s${idx}`, preYellowFn, extraRegex);
           for (const part of parts) {
             if (part.kind === 'text') html.push(escapeHtml(part.text).replace(/\n/g, '<br>'));
             else html.push(inputHtml(part.blankId, part.answer, part.preYellow));
