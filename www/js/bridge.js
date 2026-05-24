@@ -146,11 +146,7 @@
     if (typeof global.Bridge.refreshDailyReview === 'function') global.Bridge.refreshDailyReview();
   }
 
-  global.Bridge = { boot };
-
-  // 由于 <script src="js/bridge.js"> 通常在 DOMContentLoaded 之后才被解析执行，
-  // addEventListener 会错过那一次事件。所以判断当前状态——
-  // 'loading' 时挂监听，否则直接开 boot。
+  // start 是模块级的立即启动入口（不依赖 DOMContentLoaded 时序）
   function start() {
     boot().catch(err => {
       console.error('[Bridge.boot] failed:', err);
@@ -158,9 +154,7 @@
       if (box) box.innerHTML = `<div class="card" style="padding:20px;color:#b91c1c">加载笔记源失败：${err.message}<br>请先在仓库根目录运行 <code>node scripts/build-notes.js</code></div>`;
     });
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
-    start();
-  }
+  // 外部保留 { boot } 供手动重试
+  global.BridgeBoot = start;
+  start();
 })(window);

@@ -116,17 +116,44 @@ main.active { display: block; }
 .topic-inner { padding: 18px 20px; font-size: 14px; line-height: 1.9; color: var(--text-secondary); }
 .topic-inner h3 { font-size: 15px; margin: 18px 0 10px; color: var(--primary); }
 .topic-inner h3:first-child { margin-top: 0; }
-.topic-inner ul { padding-left: 20px; margin: 8px 0; }
-.topic-inner li { margin: 5px 0; }
+.topic-inner h4 { font-size: 14px; margin: 12px 0 6px; color: var(--text); font-weight: 700; }
+.topic-inner ul, .topic-inner ol { padding-left: 22px; margin: 8px 0; }
+.topic-inner li { margin: 6px 0; line-height: 1.7; }
+.topic-inner p { margin: 8px 0; line-height: 1.7; }
 .topic-inner .key { color: var(--danger); font-weight: 700; cursor: default; transition: all .2s; border-radius: 4px; padding: 1px 4px; background: rgba(239,68,68,0.06); }
 .topic-inner .code { font-family: 'Cascadia Code', 'Consolas', monospace; background: #f1f5f9; padding: 2px 7px; border-radius: 5px; font-size: 13px; }
 .topic-inner .highlight { background: #fef9c3; padding: 1px 5px; border-radius: 3px; }
+.notes-card-body > :first-child { margin-top: 0; }
+.notes-card-body > :last-child { margin-bottom: 0; }
 
-/* Notes self-test mode */
-.self-test-mode .key { background: #e2e8f0; color: transparent !important; border-radius: 4px; user-select: none; position: relative; }
-.self-test-mode .key::after { content: '?'; color: var(--text-light); position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); font-size: 12px; }
-.self-test-mode .key.revealed { color: var(--danger) !important; background: #fef2f2; }
-.self-test-mode .key.revealed::after { display: none; }
+/* Notes subsection headings */
+.notes-subsection { margin: 16px 0 10px; }
+.notes-subsection > h3 {
+  font-size: 15px; color: var(--primary); margin: 14px 0 10px;
+  padding-left: 10px; border-left: 3px solid var(--primary); font-weight: 700;
+}
+.notes-sub-body > :first-child { margin-top: 0; }
+.notes-sub-body > :last-child { margin-bottom: 0; }
+
+/* Notes table */
+.notes-table-wrap { overflow-x: auto; margin: 12px 0; border-radius: 6px; border: 1px solid var(--border); }
+table.notes-table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 480px; }
+table.notes-table th, table.notes-table td { border: 1px solid var(--border); padding: 7px 10px; vertical-align: top; text-align: left; }
+table.notes-table thead th { background: var(--primary-light); color: var(--primary); font-weight: 700; font-size: 12px; }
+table.notes-table tbody tr:nth-child(even) { background: #f8fafc; }
+table.notes-table tbody tr:hover { background: #f1f5f9; }
+
+/* Asm code blocks */
+pre.asm-code {
+  background: #1e293b; color: #e2e8f0;
+  padding: 10px 14px; border-radius: 8px; font-family: 'Cascadia Code','Consolas',monospace;
+  font-size: 13px; line-height: 1.6; overflow-x: auto; margin: 10px 0;
+}
+
+/* Notes title bar */
+.notes-title-bar { margin-bottom: 14px; padding: 12px 16px; background: linear-gradient(135deg, var(--primary-light) 0%, #f0f4ff 100%); border-radius: var(--radius-sm); }
+.notes-title-bar h2 { color: var(--primary); font-size: 17px; }
+.notes-title-bar p { color: var(--text-secondary); font-size: 12px; margin-top: 3px; }
 
 /* Question Section */
 .section-select { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -340,24 +367,6 @@ input.cloze-input.cloze-wrong {
   font-weight: 600;
   cursor: help;
 }
-
-.notes-table-wrap { overflow-x: auto; margin: 12px 0; }
-table.notes-table { border-collapse: collapse; width: 100%; font-size: 13px; }
-table.notes-table th, table.notes-table td { border: 1px solid var(--border); padding: 6px 10px; vertical-align: top; }
-table.notes-table thead th { background: var(--primary-light); color: var(--primary); }
-pre.asm-code {
-  background: #1e293b; color: #e2e8f0;
-  padding: 10px 14px; border-radius: 8px; font-family: 'Cascadia Code','Consolas',monospace;
-  font-size: 13px; line-height: 1.6; overflow-x: auto; margin: 8px 0;
-}
-.notes-subsection { margin: 14px 0 6px; }
-.notes-subsection > h3 {
-  font-size: 15px; color: var(--primary); margin: 14px 0 8px;
-  padding-left: 8px; border-left: 3px solid var(--primary);
-}
-.notes-title-bar { margin-bottom: 14px; padding: 10px 14px; background: var(--primary-light); border-radius: var(--radius-sm); }
-.notes-title-bar h2 { color: var(--primary); font-size: 17px; }
-.notes-title-bar p { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
 
 .cloze-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 14px; }
 .cloze-toolbar button {

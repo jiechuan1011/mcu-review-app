@@ -158,6 +158,9 @@
    * 返回 HTML 字符串：每个 section 一张卡片，subsection 展开。
    * 调用方负责把字符串插入 DOM，然后 ClozeTimer.attach(root, callbacks)
    */
+  const SECTION_ICONS = ['🖥️', '🔔', '⏱️', '🔌', '💾', '📡', '⚙️', '📝'];
+  const SECTION_COLORS = ['#dbeafe', '#fce7f3', '#d1fae5', '#fef3c7', '#ffedd5', '#fce4ec', '#ede9fe', '#e0e7ff'];
+
   function renderTree(tree, mode, preYellowFn) {
     mode = mode || 'view';
     preYellowFn = preYellowFn || (() => false);
@@ -177,12 +180,12 @@
       }).join('');
       out.push(`
         <div class="card notes-card" data-section-id="${sec.id}">
-          <button class="topic-btn" type="button" onclick="toggleNotesSection(this)">
-            <span class="icon" style="background:#dbeafe">📘</span>
+          <button class="topic-btn${si === 0 ? ' open' : ''}" type="button" onclick="toggleNotesSection(this)">
+            <span class="icon" style="background:${SECTION_COLORS[si % SECTION_COLORS.length]}">${SECTION_ICONS[si % SECTION_ICONS.length]}</span>
             <span>${escapeHtml(sec.title)}</span>
             <span class="arrow">▶</span>
           </button>
-          <div class="topic-content">
+          <div class="topic-content${si === 0 ? ' open' : ''}">
             <div class="topic-inner notes-card-body">
               ${introHtml}${subsHtml}
             </div>
