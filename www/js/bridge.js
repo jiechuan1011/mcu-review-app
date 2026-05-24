@@ -94,7 +94,16 @@
     global.__GENERATED = generated;
     global.NOTES = shapeNotes(tree, (bid) => ClozeState.isYellow(bid));
     global.QUESTIONS = questions;
-    global.GENERATED_POOL = { choice: questions.choice, mem: [] };
+    // 旧版"新题"模块的 5 个键 —— 缺一个就会 .map throw。
+    // fill 用 fillBlank.groups 摊平；prog/mem 暂无源头，保持空数组。
+    global.GENERATED_POOL = {
+      choice: questions.choice,
+      fill: questions.fillBlank.groups.flatMap(g =>
+        g.items.map(it => ({ text: it.text, blanks: it.blanks, tag: g.tag }))),
+      tf: questions.trueFalse,
+      prog: [],
+      mem: []
+    };
 
     // 暴露切换钩子供 HTML 内联事件调用
     global.Bridge = {
@@ -111,8 +120,16 @@
       regenerate() {
         const fresh = QuestionGenerator.generate(tree);
         global.__GENERATED = fresh;
-        global.QUESTIONS = shapeQuestions(fresh);
-        global.GENERATED_POOL = { choice: global.QUESTIONS.choice, mem: [] };
+        const q = shapeQuestions(fresh);
+        global.QUESTIONS = q;
+        global.GENERATED_POOL = {
+          choice: q.choice,
+          fill: q.fillBlank.groups.flatMap(g =>
+            g.items.map(it => ({ text: it.text, blanks: it.blanks, tag: g.tag }))),
+          tf: q.trueFalse,
+          prog: [],
+          mem: []
+        };
         if (typeof renderPracticeNav === 'function') renderPracticeNav();
         if (typeof switchSection === 'function' && typeof currentSection !== 'undefined') switchSection(currentSection);
       }
