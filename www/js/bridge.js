@@ -135,14 +135,32 @@
       }
     };
 
-    // 派发就绪事件，HTML 主逻辑监听后重新渲染
+    // 派发就绪事件并直接驱动 UI 渲染
     document.dispatchEvent(new CustomEvent('notes-ready', { detail: { tree, generated } }));
+    // 兜底：即便监听器还没注册，也直接调用全局函数把 UI 拉起来
+    if (typeof global.rerenderNotes === 'function') global.rerenderNotes();
+    if (typeof global.renderPracticeNav === 'function') global.renderPracticeNav();
+    if (typeof global.switchSection === 'function' && typeof global.currentSection !== 'undefined') {
+      global.switchSection(global.currentSection);
+    }
+    if (typeof global.Bridge.refreshDailyReview === 'function') global.Bridge.refreshDailyReview();
   }
 
   global.Bridge = { boot };
-  document.addEventListener('DOMContentLoaded', () => boot().catch(err => {
-    console.error('[Bridge.boot] failed:', err);
-    const box = document.getElementById('notesContainer');
-    if (box) box.innerHTML = `<div class="card" style="padding:20px;color:#b91c1c">加载笔记源失败：${err.message}<br>请先在仓库根目录运行 <code>node scripts/build-notes.js</code></div>`;
-  }));
+
+  // 由于 <script src="js/bridge.js"> 通常在 DOMContentLoaded 之后才被解析执行，
+  // addEventListener 会错过那一次事件。所以判断当前状态——
+  // 'loading' 时挂监听，否则直接开 boot。
+  function start() {
+    boot().catch(err => {
+      console.error('[Bridge.boot] failed:', err);
+      const box = document.getElementById('notesContainer');
+      if (box) box.innerHTML = `<div class="card" style="padding:20px;color:#b91c1c">加载笔记源失败：${err.message}<br>请先在仓库根目录运行 <code>node scripts/build-notes.js</code></div>`;
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
 })(window);
